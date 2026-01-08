@@ -1,0 +1,87 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\micaf\\source\\repos\\ArticulationExplorer\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{61B86873-FA10-4486-9723-6F352C505294}|ArticulationExplorer.csproj|c:\\users\\micaf\\source\\repos\\articulationexplorer\\mainwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{61B86873-FA10-4486-9723-6F352C505294}|ArticulationExplorer.csproj|solutionrelative:mainwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{61B86873-FA10-4486-9723-6F352C505294}|ArticulationExplorer.csproj|c:\\users\\micaf\\source\\repos\\articulationexplorer\\model\\edge.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{61B86873-FA10-4486-9723-6F352C505294}|ArticulationExplorer.csproj|solutionrelative:model\\edge.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{61B86873-FA10-4486-9723-6F352C505294}|ArticulationExplorer.csproj|c:\\users\\micaf\\source\\repos\\articulationexplorer\\model\\node.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{61B86873-FA10-4486-9723-6F352C505294}|ArticulationExplorer.csproj|solutionrelative:model\\node.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{61B86873-FA10-4486-9723-6F352C505294}|ArticulationExplorer.csproj|c:\\users\\micaf\\source\\repos\\articulationexplorer\\mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{61B86873-FA10-4486-9723-6F352C505294}|ArticulationExplorer.csproj|solutionrelative:mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 3,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "Edge.cs",
+              "DocumentMoniker": "C:\\Users\\micaf\\source\\repos\\ArticulationExplorer\\Model\\Edge.cs",
+              "RelativeDocumentMoniker": "Model\\Edge.cs",
+              "ToolTip": "C:\\Users\\micaf\\source\\repos\\ArticulationExplorer\\Model\\Edge.cs",
+              "RelativeToolTip": "Model\\Edge.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAuwAsAAAAdAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-01-08T03:14:03.633Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "Node.cs",
+              "DocumentMoniker": "C:\\Users\\micaf\\source\\repos\\ArticulationExplorer\\Model\\Node.cs",
+              "RelativeDocumentMoniker": "Model\\Node.cs",
+              "ToolTip": "C:\\Users\\micaf\\source\\repos\\ArticulationExplorer\\Model\\Node.cs",
+              "RelativeToolTip": "Model\\Node.cs",
+              "ViewState": "AgIAAAMAAAAAAAAAAAAAABAAAAAzAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-01-08T01:31:46.618Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "MainWindow.xaml",
+              "DocumentMoniker": "C:\\Users\\micaf\\source\\repos\\ArticulationExplorer\\MainWindow.xaml",
+              "RelativeDocumentMoniker": "MainWindow.xaml",
+              "ToolTip": "C:\\Users\\micaf\\source\\repos\\ArticulationExplorer\\MainWindow.xaml",
+              "RelativeToolTip": "MainWindow.xaml",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003549|",
+              "WhenOpened": "2026-01-08T00:25:47.077Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "MainWindow.xaml.cs",
+              "DocumentMoniker": "C:\\Users\\micaf\\source\\repos\\ArticulationExplorer\\MainWindow.xaml.cs",
+              "RelativeDocumentMoniker": "MainWindow.xaml.cs",
+              "ToolTip": "C:\\Users\\micaf\\source\\repos\\ArticulationExplorer\\MainWindow.xaml.cs",
+              "RelativeToolTip": "MainWindow.xaml.cs",
+              "ViewState": "AgIAABkAAAAAAAAAAAAQwCsAAAAuAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-01-08T00:25:40.345Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
