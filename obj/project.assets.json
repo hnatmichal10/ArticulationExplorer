@@ -15,11 +15,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\micaf\\source\\repos\\ArticulationExplorer\\ArticulationExplorer.csproj",
+      "projectUniqueName": "C:\\Users\\micaf\\Documents\\GitHub\\ArticulationExplorer\\ArticulationExplorer.csproj",
       "projectName": "ArticulationExplorer",
-      "projectPath": "C:\\Users\\micaf\\source\\repos\\ArticulationExplorer\\ArticulationExplorer.csproj",
+      "projectPath": "C:\\Users\\micaf\\Documents\\GitHub\\ArticulationExplorer\\ArticulationExplorer.csproj",
       "packagesPath": "C:\\Users\\micaf\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\micaf\\source\\repos\\ArticulationExplorer\\obj\\",
+      "outputPath": "C:\\Users\\micaf\\Documents\\GitHub\\ArticulationExplorer\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages",

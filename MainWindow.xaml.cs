@@ -39,10 +39,6 @@ namespace ArticulationExplorer
         private List<Edge> edges = new();
         private bool ignoreNextNodeClick = false;
 
-        //reseni hitboxu vrcholu
-        private const double NodeRadius = 15;
-        private const double HitboxRadius = 30;
-
         //pridani vrcholu
         private void GraphCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
@@ -65,7 +61,7 @@ namespace ArticulationExplorer
 
         private void AddNode(double x, double y)
         {
-            int id = nodeCounter++;
+            string nodeName = GetNodeName(nodeCounter++);
 
             //vizualni vrchol
             Ellipse ellipse = new Ellipse
@@ -74,15 +70,16 @@ namespace ArticulationExplorer
                 Height = 30,
                 Fill = Brushes.LightBlue,
                 Stroke = Brushes.Black,
-                StrokeThickness = 2
+                StrokeThickness = 2,
+                Cursor = Cursors.Hand
             };
 
             //text
             TextBlock label = new TextBlock
             {
-                Text = id.ToString(),
+                Text = nodeName,
                 FontWeight = FontWeights.Bold,
-                IsHitTestVisible = false // aby nepřekážel myši
+                IsHitTestVisible = false
             };
 
             //pozice
@@ -95,7 +92,8 @@ namespace ArticulationExplorer
             //objekt
             Node node = new Node
             {
-                Id = id,
+                Id = nodeCounter,
+                Name = nodeName,
                 X = x,
                 Y = y,
                 Shape = ellipse,
@@ -176,9 +174,17 @@ namespace ArticulationExplorer
                 e.Handled = true;
             };
 
+            //mazani vrcholu
+            ellipse.MouseRightButtonDown += (s, e) =>
+            {
+                RemoveNode(node);
+                e.Handled = true;
+            };
+
         }
         private void HandleNodeClick(Node node)
         {
+
             //prvni klik
             if (selectedNodeForEdge == null)
             {
@@ -196,13 +202,37 @@ namespace ArticulationExplorer
             }
 
             //druhy klik = vytvor hranu
-            AddEdge(selectedNodeForEdge, node);
+            //jen pokud dana hrana jeste neexistuje
+            if (!EdgeExists(selectedNodeForEdge, node))
+            {
+                AddEdge(selectedNodeForEdge, node);
+            }
 
             selectedNodeForEdge.Shape.Fill = Brushes.LightBlue;
             selectedNodeForEdge = null;
+
         }
+
         private void AddEdge(Node from, Node to)
         {
+            //validita hrany
+            if (from == to)
+                return;
+
+            if (EdgeExists(from, to))
+                return;
+
+            Line hitbox = new Line
+            {
+                Stroke = Brushes.Transparent,
+                StrokeThickness = 16,
+                X1 = from.X,
+                Y1 = from.Y,
+                X2 = to.X,
+                Y2 = to.Y,
+                Cursor = Cursors.Hand
+            };
+
             Line line = new Line
             {
                 Stroke = Brushes.Black,
@@ -218,13 +248,25 @@ namespace ArticulationExplorer
             {
                 From = from,
                 To = to,
-                Shape = line
+                Shape = line,
+                Hitbox = hitbox
             };
 
             edges.Add(edge);
+            from.Neighbors.Add(to);
+            to.Neighbors.Add(from);
 
             //hrany musi byt pod vrcholy
-            GraphCanvas.Children.Insert(0, line);
+            GraphCanvas.Children.Insert(0, hitbox);
+            GraphCanvas.Children.Insert(1, line);
+
+
+            //mazani hran
+            hitbox.MouseRightButtonDown += (s, e) =>
+            {
+                RemoveEdge(edge);
+                e.Handled = true;
+            };
         }
 
         private void UpdateEdges(Node node)
@@ -237,6 +279,11 @@ namespace ArticulationExplorer
                     edge.Shape.Y1 = edge.From.Y;
                     edge.Shape.X2 = edge.To.X;
                     edge.Shape.Y2 = edge.To.Y;
+
+                    edge.Hitbox.X1 = edge.From.X;
+                    edge.Hitbox.Y1 = edge.From.Y;
+                    edge.Hitbox.X2 = edge.To.X;
+                    edge.Hitbox.Y2 = edge.To.Y;
                 }
             }
         }
@@ -249,11 +296,73 @@ namespace ArticulationExplorer
                 double dx = node.X - p.X;
                 double dy = node.Y - p.Y;
 
-                if (Math.Sqrt(dx * dx + dy * dy) <= HitboxRadius)
+                if (Math.Sqrt(dx * dx + dy * dy) <= node.Shape.Width)
                     return node;
             }
 
             return null;
+        }
+
+        //resi duplicitu hran
+        private bool EdgeExists(Node a, Node b)
+        {
+            return edges.Any(e =>
+                (e.From == a && e.To == b) ||
+                (e.From == b && e.To == a));
+        }
+
+        //mazani hran
+        private void RemoveEdge(Edge edge)
+        {
+            GraphCanvas.Children.Remove(edge.Shape);
+            GraphCanvas.Children.Remove(edge.Hitbox);
+
+            edge.From.Neighbors.Remove(edge.To);
+            edge.To.Neighbors.Remove(edge.From);
+
+            edges.Remove(edge);
+        }
+
+        //mazani vrcholu
+        private void RemoveNode(Node node)
+        {
+            //pokud byl vybrany
+            if (selectedNodeForEdge == node)
+            {
+                selectedNodeForEdge = null;
+            }
+
+            //vsechny jeho hrany
+            var edgesToRemove = edges
+                .Where(e => e.From == node || e.To == node)
+                .ToList();
+
+            //mazani hran
+            foreach (var edge in edgesToRemove)
+            {
+                RemoveEdge(edge);
+            }
+            
+            GraphCanvas.Children.Remove(node.Shape);
+            GraphCanvas.Children.Remove(node.Label);
+
+            nodes.Remove(node);
+        }
+
+        //pismena misto cisel na vrcholech
+        private string GetNodeName(int index)
+        {
+            string name = "";
+            index++;
+
+            while (index > 0)
+            {
+                index--;
+                name = (char)('a' + (index % 26)) + name;
+                index /= 26;
+            }
+
+            return name;
         }
     }
 }

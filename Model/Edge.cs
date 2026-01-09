@@ -13,5 +13,6 @@ namespace ArticulationExplorer.Model
         public required Node To { get; set; }
 
         public required Line Shape { get; set; }
+        public required Line Hitbox { get; set; }
     }
 }
