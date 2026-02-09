@@ -19,5 +19,10 @@ namespace ArticulationExplorer.Model
         public required TextBlock Label { get; set; }
 
         public List<Node> Neighbors { get; } = new();
+
+        public bool Visited { get; set; }
+        public int Disc { get; set; }
+        public int Low { get; set; }
+        public Node? Parent { get; set; }
     }
 }

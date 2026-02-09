@@ -6,8 +6,26 @@
         xmlns:local="clr-namespace:ArticulationExplorer"
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
-    <Canvas x:Name="GraphCanvas"
-            Background="White">
-        
-    </Canvas>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Button Content="spustit"
+                Padding="5"
+                Margin="10"
+                HorizontalAlignment="Left"
+                Click="FindArticulations_Click"/>
+
+        <Button Content="reset"
+                Padding="5"
+                Margin="10"
+                HorizontalAlignment="Center"
+                Click="ResetArticulations_Click"/>
+
+        <Canvas x:Name="GraphCanvas"
+                Grid.Row="1"
+                Background="White"/>
+    </Grid>
 </Window>

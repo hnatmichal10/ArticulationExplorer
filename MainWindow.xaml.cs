@@ -39,6 +39,10 @@ namespace ArticulationExplorer
         private List<Edge> edges = new();
         private bool ignoreNextNodeClick = false;
 
+        //pro tarjana
+        private int dfsTime;
+        private HashSet<Node> articulationPoints = new();
+
         //pridani vrcholu
         private void GraphCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
@@ -363,6 +367,94 @@ namespace ArticulationExplorer
             }
 
             return name;
+        }
+
+        //hledani artikulaci
+        private void FindArticulations()
+        {
+            //reset
+            ResetArticulations();
+
+            //prochazeni vrcholu
+            foreach (var node in nodes)
+            {
+                if (!node.Visited)
+                {
+                    DFS(node);
+                }
+            }
+
+            //artikulace jsou cervene
+            foreach (var ap in articulationPoints)
+            {
+                ap.Shape.Fill = Brushes.Red;
+            }
+        }
+
+        //tarjan
+        private void DFS(Node u)
+        {
+            u.Visited = true;
+            u.Disc = u.Low = ++dfsTime;
+
+            int children = 0;
+
+            foreach (var v in u.Neighbors)
+            {
+                //stromova hrana
+                if (!v.Visited)
+                {
+                    children++;
+                    v.Parent = u;
+
+                    DFS(v);
+
+                    u.Low = Math.Min(u.Low, v.Low);
+
+                    if (u.Parent != null && v.Low >= u.Disc)
+                    {
+                        articulationPoints.Add(u);
+                    }
+                }
+                else if (v != u.Parent)
+                {
+                    u.Low = Math.Min(u.Low, v.Disc);
+                }
+            }
+
+            //korenovy vrchol
+            if (u.Parent == null && children > 1)
+            {
+                articulationPoints.Add(u);
+            }
+        }
+
+        //tlacitko spustit
+        private void FindArticulations_Click(object sender, RoutedEventArgs e)
+        {
+            FindArticulations();
+        }
+
+        //reset
+        private void ResetArticulations()
+        {
+            dfsTime = 0;
+            articulationPoints.Clear();
+            foreach (var node in nodes)
+            {
+                node.Visited = false;
+                node.Parent = null;
+                node.Disc = 0;
+                node.Low = 0;
+
+                node.Shape.Fill = Brushes.LightBlue;
+            }
+        }
+
+        //tlacitko reset
+        private void ResetArticulations_Click(object sender, RoutedEventArgs e)
+        {
+            ResetArticulations();
         }
     }
 }

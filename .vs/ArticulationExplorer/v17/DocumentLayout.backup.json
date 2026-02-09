@@ -7,16 +7,16 @@
       "RelativeMoniker": "D:0:0:{61B86873-FA10-4486-9723-6F352C505294}|ArticulationExplorer.csproj|solutionrelative:mainwindow.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
+      "AbsoluteMoniker": "D:0:0:{61B86873-FA10-4486-9723-6F352C505294}|ArticulationExplorer.csproj|c:\\users\\micaf\\documents\\github\\articulationexplorer\\mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
+      "RelativeMoniker": "D:0:0:{61B86873-FA10-4486-9723-6F352C505294}|ArticulationExplorer.csproj|solutionrelative:mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{61B86873-FA10-4486-9723-6F352C505294}|ArticulationExplorer.csproj|c:\\users\\micaf\\documents\\github\\articulationexplorer\\model\\node.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{61B86873-FA10-4486-9723-6F352C505294}|ArticulationExplorer.csproj|solutionrelative:model\\node.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{61B86873-FA10-4486-9723-6F352C505294}|ArticulationExplorer.csproj|c:\\users\\micaf\\documents\\github\\articulationexplorer\\model\\edge.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{61B86873-FA10-4486-9723-6F352C505294}|ArticulationExplorer.csproj|solutionrelative:model\\edge.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{61B86873-FA10-4486-9723-6F352C505294}|ArticulationExplorer.csproj|c:\\users\\micaf\\documents\\github\\articulationexplorer\\mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}",
-      "RelativeMoniker": "D:0:0:{61B86873-FA10-4486-9723-6F352C505294}|ArticulationExplorer.csproj|solutionrelative:mainwindow.xaml||{F11ACC28-31D1-4C80-A34B-F4E09D3D753C}"
     }
   ],
   "DocumentGroupContainers": [
@@ -30,7 +30,7 @@
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 3,
               "Title": "Edge.cs",
               "DocumentMoniker": "C:\\Users\\micaf\\Documents\\GitHub\\ArticulationExplorer\\Model\\Edge.cs",
               "RelativeDocumentMoniker": "Model\\Edge.cs",
@@ -43,20 +43,20 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 2,
               "Title": "Node.cs",
               "DocumentMoniker": "C:\\Users\\micaf\\Documents\\GitHub\\ArticulationExplorer\\Model\\Node.cs",
               "RelativeDocumentMoniker": "Model\\Node.cs",
               "ToolTip": "C:\\Users\\micaf\\Documents\\GitHub\\ArticulationExplorer\\Model\\Node.cs",
               "RelativeToolTip": "Model\\Node.cs",
-              "ViewState": "AgIAAAIAAAAAAAAAAAAIwA0AAAAxAAAAAAAAAA==",
+              "ViewState": "AgIAAAsAAAAAAAAAAAAAwBUAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-01-08T01:31:46.618Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 1,
               "Title": "MainWindow.xaml",
               "DocumentMoniker": "C:\\Users\\micaf\\Documents\\GitHub\\ArticulationExplorer\\MainWindow.xaml",
               "RelativeDocumentMoniker": "MainWindow.xaml",
@@ -74,7 +74,7 @@
               "RelativeDocumentMoniker": "MainWindow.xaml.cs",
               "ToolTip": "C:\\Users\\micaf\\Documents\\GitHub\\ArticulationExplorer\\MainWindow.xaml.cs",
               "RelativeToolTip": "MainWindow.xaml.cs",
-              "ViewState": "AgIAAFQBAAAAAAAAAAAAAGgBAAAgAAAAAAAAAA==",
+              "ViewState": "AgIAAHMBAAAAAAAAAAAkwIEBAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-01-08T00:25:40.345Z",
               "EditorCaption": ""
