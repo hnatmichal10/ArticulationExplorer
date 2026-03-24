@@ -5,27 +5,72 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ArticulationExplorer"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="MainWindow" Height="450" Width="800"
+        WindowState="Maximized"
+        ResizeMode="CanResize"
+        WindowStartupLocation="CenterScreen">
+    
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <Button Content="spustit"
-                Padding="5"
-                Margin="10"
-                HorizontalAlignment="Left"
-                Click="FindArticulations_Click"/>
+        <StackPanel Orientation="Horizontal" Background="LightGray">
+            <!-- bez krokovani -->
+            <Button x:Name="FindArticulationsButton" 
+                    Content="spustit"
+                    Padding="5"
+                    Margin="10"
+                    Click="FindArticulations_Click"/>
 
-        <Button Content="reset"
-                Padding="5"
-                Margin="10"
-                HorizontalAlignment="Center"
-                Click="ResetArticulations_Click"/>
+            <Button x:Name="ClearGraphButton"
+                    Content="nový graf"
+                    Padding="5"
+                    Margin="10"
+                    Click="ClearGraph_Click"/>
+            <!-- s krokovanim -->
+            <Button x:Name="StartAlgorithmButton"
+                    Content="spustit krokování" 
+                    Padding="5" 
+                    Margin="10" 
+                    Click="StartAlgorithm_Click"/>
 
-        <Canvas x:Name="GraphCanvas"
-                Grid.Row="1"
-                Background="White"/>
+            <Button x:Name="StepBackButton"
+                    Content="zpět" 
+                    Padding="5" 
+                    Margin="10"
+                    Click="StepBackward_Click"/>
+
+            <Button x:Name="StepForwardButton"
+                    Content="vpřed" 
+                    Padding="5" 
+                    Margin="10" 
+                    Click="StepForward_Click"/>
+
+            <Button x:Name="ResetAlgorithmButton"
+                    Content="reset krokování"
+                    Padding="5"
+                    Margin="10"
+                    Click="ResetAlgorithm_Click"/>
+        </StackPanel>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="300" />
+            </Grid.ColumnDefinitions>
+
+            <Canvas x:Name="GraphCanvas"
+                    Grid.Column="0"
+                    Background="White"/>
+
+            <TextBlock x:Name="InfoText"
+                       Grid.Column="1"
+                       Margin="10"
+                       TextWrapping="Wrap"
+                       FontFamily="Consolas"
+                       VerticalAlignment="Top"/>
+        </Grid>
     </Grid>
 </Window>

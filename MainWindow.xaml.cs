@@ -9,6 +9,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.Xml.Linq;
 
 namespace ArticulationExplorer
 {
@@ -20,6 +21,8 @@ namespace ArticulationExplorer
         public MainWindow()
         {
             InitializeComponent();
+
+            UpdateControls();
 
             GraphCanvas.MouseLeftButtonDown += GraphCanvas_MouseLeftButtonDown;
         }
@@ -43,9 +46,20 @@ namespace ArticulationExplorer
         private int dfsTime;
         private HashSet<Node> articulationPoints = new();
 
+        //pro krokovani
+        private Dictionary<Node, int> disc = new();
+        private Dictionary<Node, int> low = new();
+        private Stack<DFSFrame> dfsStack = new();
+        private List<AlgorithmState> history = new();
+        private int historyIndex = -1;
+        private bool isSteppingMode = false;
+
         //pridani vrcholu
         private void GraphCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
+            if (isSteppingMode)
+                return;
+
             if (e.Source == GraphCanvas)
             {
                 Point p = e.GetPosition(GraphCanvas);
@@ -60,6 +74,8 @@ namespace ArticulationExplorer
 
                 AddNode(p.X, p.Y);
                 ignoreNextNodeClick = true;
+
+                UpdateControls();
             }
         }
 
@@ -113,6 +129,9 @@ namespace ArticulationExplorer
             //drag vrcholu
             ellipse.MouseLeftButtonDown += (s, e) =>
             {
+                if (isSteppingMode)
+                    return;
+
                 mouseDownPos = e.GetPosition(GraphCanvas);
                 draggedNode = node;
                 isDragging = false;
@@ -144,6 +163,9 @@ namespace ArticulationExplorer
 
             GraphCanvas.MouseMove += (s, e) =>
             {
+                if (isSteppingMode)
+                    return;
+
                 if (draggedNode == null) return;
 
                 Point p = e.GetPosition(GraphCanvas);
@@ -181,13 +203,20 @@ namespace ArticulationExplorer
             //mazani vrcholu
             ellipse.MouseRightButtonDown += (s, e) =>
             {
+                if (isSteppingMode)
+                    return;
+
                 RemoveNode(node);
                 e.Handled = true;
+
+                UpdateControls();
             };
 
         }
         private void HandleNodeClick(Node node)
         {
+            if (isSteppingMode)
+                return;
 
             //prvni klik
             if (selectedNodeForEdge == null)
@@ -268,8 +297,13 @@ namespace ArticulationExplorer
             //mazani hran
             hitbox.MouseRightButtonDown += (s, e) =>
             {
+                if (isSteppingMode)
+                    return;
+
                 RemoveEdge(edge);
                 e.Handled = true;
+
+                UpdateControls();
             };
         }
 
@@ -373,7 +407,16 @@ namespace ArticulationExplorer
         private void FindArticulations()
         {
             //reset
-            ResetArticulations();
+            dfsTime = 0;
+            articulationPoints.Clear();
+            foreach (var node in nodes)
+            {
+                node.Visited = false;
+                node.Parent = null;
+                node.Disc = 0;
+                node.Low = 0;
+                node.Shape.Fill = Brushes.LightBlue;
+            }
 
             //prochazeni vrcholu
             foreach (var node in nodes)
@@ -435,11 +478,260 @@ namespace ArticulationExplorer
             FindArticulations();
         }
 
-        //reset
-        private void ResetArticulations()
+        private void ClearGraph()
+        {
+            if (isSteppingMode)
+                return;
+
+            GraphCanvas.Children.Clear();
+
+            nodes.Clear();
+            edges.Clear();
+            articulationPoints.Clear();
+
+            selectedNodeForEdge = null;
+            draggedNode = null;
+
+            dfsTime = 0;
+            nodeCounter = 0;
+            InfoText.Text = "";
+            UpdateControls();
+        }
+
+        private void ClearGraph_Click(object sender, RoutedEventArgs e)
+        {
+            ClearGraph();
+        }
+
+        //krokovani
+        private void SaveState(string description, Node? current = null, Node? neighbor = null)
+        {
+            //uprava historie, kvuli krokovani zpet
+            if (historyIndex < history.Count - 1)
+            {
+                history = history.Take(historyIndex + 1).ToList();
+            }
+
+            var state = new AlgorithmState
+            {
+                Disc = disc.ToDictionary(e => e.Key, e => e.Value),
+                Low = low.ToDictionary(e => e.Key, e => e.Value),
+                Articulations = new HashSet<Node>(articulationPoints),
+                Stack = new Stack<DFSFrame>(dfsStack.Reverse().Select(f =>
+                    new DFSFrame
+                    {
+                        Node = f.Node,
+                        Parent = f.Parent,
+                        NeighborIndex = f.NeighborIndex,
+                        Children = f.Children
+                    })),
+                CurrentNode = current,
+                CurrentNeighbor = neighbor,
+                Description = description
+            };
+
+            history.Add(state);
+            historyIndex = history.Count - 1;
+        }
+
+        public void StartAlgorithm()
+        {
+            if (nodes.Count == 0)
+                return;
+
+            disc.Clear();
+            low.Clear();
+            articulationPoints.Clear();
+            dfsStack.Clear();
+            history.Clear();
+            dfsTime = 0;
+
+            Node start = nodes.First();
+
+            dfsStack.Push(new DFSFrame
+            {
+                Node = start,
+                Parent = null,
+                NeighborIndex = 0,
+                Children = 0
+            });
+
+            isSteppingMode = true;
+
+            SaveState("Inicializace algoritmu", start);
+
+            UpdateControls();
+        }
+        public void StepForward()
+        {
+            //nacitani z historie, kvuli krokovani zpet
+            if (historyIndex < history.Count - 1)
+            {
+                historyIndex++;
+                LoadState(history[historyIndex]);
+                UpdateControls();
+                return;
+            }
+
+            ExecuteNextStep();
+
+            if (historyIndex >= 0 && historyIndex < history.Count)
+            {
+                LoadState(history[historyIndex]);
+            }
+
+            UpdateControls();
+        }
+
+        public void ExecuteNextStep()
+        {
+            if (dfsStack.Count == 0)
+                return;
+
+            DFSFrame frame = dfsStack.Peek();
+            Node u = frame.Node;
+
+            if (!disc.ContainsKey(u))
+            {
+                disc[u] = low[u] = ++dfsTime;
+                SaveState($"Navštíven uzel {u.Name}, disc=low={dfsTime}", u);
+                return;
+            }
+
+            List<Node> neighbors = u.Neighbors.ToList();
+
+            while (frame.NeighborIndex < neighbors.Count)
+            {
+                Node v = neighbors[frame.NeighborIndex++];
+
+                if (!disc.ContainsKey(v))
+                {
+                    frame.Children++;
+
+                    dfsStack.Push(new DFSFrame
+                    {
+                        Node = v,
+                        Parent = u,
+                        NeighborIndex = 0,
+                        Children = 0
+                    });
+
+                    SaveState($"Jdu z {u.Name} do {v.Name}", u, v);
+                    return;
+                }
+
+                if (v != frame.Parent)
+                {
+                    low[u] = Math.Min(low[u], disc[v]);
+                    SaveState($"Back-edge {u.Name} -> {v.Name}, low[{u.Name}] = {low[u]}", u, v);
+                    return;
+                }
+
+            }
+
+            dfsStack.Pop();
+
+            if (frame.Parent != null)
+            {
+                Node p = frame.Parent;
+
+                if (dfsStack.Count > 0)
+                {
+                    low[p] = Math.Min(low[p], low[u]);
+
+                    DFSFrame parentFrame = dfsStack.Peek();
+
+                    if (parentFrame.Parent != null && low[u] >= disc[p])
+                    {
+                        articulationPoints.Add(p);
+                        SaveState($"Artikulace nalezena: {p.Name}", p);
+                    }
+                    else
+                    {
+                        SaveState($"Návrat z {u.Name} do {p.Name}", p);
+                    }
+                }
+
+                return;
+            }
+
+            if (frame.Children > 1)
+            {
+                articulationPoints.Add(u);
+                SaveState($"Kořen je artikulace: {u.Name}", u);
+            }
+            else
+            {
+                SaveState($"DFS dokončeno pro kořen {u.Name}", u);
+            }
+        }
+        private void LoadState(AlgorithmState state)
+        {
+            disc = state.Disc.ToDictionary(e => e.Key, e => e.Value);
+            low = state.Low.ToDictionary(e => e.Key, e => e.Value);
+            articulationPoints = new HashSet<Node>(state.Articulations);
+            dfsStack = new Stack<DFSFrame>(state.Stack.Reverse());
+
+            RedrawGraph();
+            UpdateInfoPanel(state);
+        }
+        public void StepBackward()
+        {
+            if (historyIndex <= 0) return;
+
+            historyIndex--;
+            LoadState(history[historyIndex]);
+
+            UpdateControls();
+        }
+        private void UpdateInfoPanel(AlgorithmState state)
+        {
+            InfoText.Text =
+                $"Krok: {historyIndex}\n" +
+                $"Popis: {state.Description}\n\n" +
+                string.Join("\n", state.Disc.Select(n =>
+                    $"{n.Key.Name}: disc={n.Value}, low={state.Low[n.Key]}"));
+        }
+        private void RedrawGraph()
+        {
+            // 1)hrany
+            foreach (var edge in edges)
+            {
+                edge.Shape.Stroke = Brushes.Black;
+            }
+
+            // 2)vrcholy
+            foreach (var node in nodes)
+            {
+                node.Shape.Fill = Brushes.LightBlue;
+            }
+
+            // 3)artikulace
+            foreach (var node in articulationPoints)
+            {
+                node.Shape.Fill = Brushes.Red;
+            }
+
+            // 4)aktualni frame
+            if (dfsStack.Count > 0)
+            {
+                var current = dfsStack.Peek().Node;
+                current.Shape.Fill = Brushes.Yellow;
+            }
+        }
+
+        private void ResetAlgorithm()
         {
             dfsTime = 0;
+
+            disc.Clear();
+            low.Clear();
+            dfsStack.Clear();
             articulationPoints.Clear();
+
+            history.Clear();
+            historyIndex = -1;
+
             foreach (var node in nodes)
             {
                 node.Visited = false;
@@ -449,12 +741,55 @@ namespace ArticulationExplorer
 
                 node.Shape.Fill = Brushes.LightBlue;
             }
+
+            foreach (var edge in edges)
+            {
+                edge.Shape.Stroke = Brushes.Black;
+            }
+
+            RedrawGraph();
+            InfoText.Text = "";
+
+            isSteppingMode = false;
+            UpdateControls();
         }
 
-        //tlacitko reset
-        private void ResetArticulations_Click(object sender, RoutedEventArgs e)
+        //tlacitka na krokovani
+        private void StartAlgorithm_Click(object sender, RoutedEventArgs e)
         {
-            ResetArticulations();
+            StartAlgorithm();
+            if (historyIndex >= 0)
+            {
+                LoadState(history[historyIndex]);
+            }
+        }
+
+        private void StepForward_Click(object sender, RoutedEventArgs e)
+        {
+            StepForward();
+            LoadState(history[historyIndex]);
+        }
+
+        private void StepBackward_Click(object sender, RoutedEventArgs e)
+        {
+            StepBackward();
+        }
+        private void ResetAlgorithm_Click(object sender, RoutedEventArgs e)
+        {
+            ResetAlgorithm();
+        }
+
+        //enable/disable tlacitek
+        private void UpdateControls()
+        {
+            StepBackButton.IsEnabled = isSteppingMode && historyIndex > 0;
+            StepForwardButton.IsEnabled = isSteppingMode;
+            ResetAlgorithmButton.IsEnabled = isSteppingMode;
+            StartAlgorithmButton.IsEnabled = !isSteppingMode && nodes.Count > 0;
+            FindArticulationsButton.IsEnabled = !isSteppingMode;
+            ClearGraphButton.IsEnabled = !isSteppingMode;
+
+            GraphCanvas.Cursor = isSteppingMode ? Cursors.No : Cursors.Arrow;
         }
     }
 }
