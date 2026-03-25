@@ -49,7 +49,7 @@
                     Click="StepForward_Click"/>
 
             <Button x:Name="ResetAlgorithmButton"
-                    Content="reset krokování"
+                    Content="konec krokování"
                     Padding="5"
                     Margin="10"
                     Click="ResetAlgorithm_Click"/>

@@ -26,7 +26,7 @@ namespace ArticulationExplorer
 
             GraphCanvas.MouseLeftButtonDown += GraphCanvas_MouseLeftButtonDown;
         }
-        //pro text na vrcholech
+        //id vrcholu
         private int nodeCounter = 0;
 
         //vrcholy
@@ -81,7 +81,7 @@ namespace ArticulationExplorer
 
         private void AddNode(double x, double y)
         {
-            string nodeName = GetNodeName(nodeCounter++);
+            string nodeName = GetNextAvailableNodeName();
 
             //vizualni vrchol
             Ellipse ellipse = new Ellipse
@@ -226,7 +226,7 @@ namespace ArticulationExplorer
                 return;
             }
 
-            //klik na stejny uzel = zruseni
+            //klik na stejny vrchol = zruseni
             if (selectedNodeForEdge == node)
             {
                 node.Shape.Fill = Brushes.LightBlue;
@@ -288,6 +288,9 @@ namespace ArticulationExplorer
             edges.Add(edge);
             from.Neighbors.Add(to);
             to.Neighbors.Add(from);
+
+            from.Neighbors.Sort((a, b) => StringComparer.Ordinal.Compare(a.Name, b.Name));
+            to.Neighbors.Sort((a, b) => StringComparer.Ordinal.Compare(a.Name, b.Name));
 
             //hrany musi byt pod vrcholy
             GraphCanvas.Children.Insert(0, hitbox);
@@ -387,7 +390,7 @@ namespace ArticulationExplorer
             nodes.Remove(node);
         }
 
-        //pismena misto cisel na vrcholech
+        //jmena vrcholu (pismena)
         private string GetNodeName(int index)
         {
             string name = "";
@@ -401,6 +404,33 @@ namespace ArticulationExplorer
             }
 
             return name;
+        }
+
+        private int GetNodeIndex(string name)
+        {
+            int result = 0;
+
+            foreach (char c in name)
+            {
+                result = result * 26 + (c - 'a' + 1);
+            }
+
+            return result - 1;
+        }
+
+        private string GetNextAvailableNodeName()
+        {
+            HashSet<int> usedIndexes = nodes
+                .Select(n => GetNodeIndex(n.Name))
+                .ToHashSet();
+
+            int index = 0;
+            while (usedIndexes.Contains(index))
+            {
+                index++;
+            }
+
+            return GetNodeName(index);
         }
 
         //hledani artikulaci
@@ -594,11 +624,11 @@ namespace ArticulationExplorer
             if (!disc.ContainsKey(u))
             {
                 disc[u] = low[u] = ++dfsTime;
-                SaveState($"Navštíven uzel {u.Name}, disc=low={dfsTime}", u);
+                SaveState($"Navštíven vrchol {u.Name}, por=min={dfsTime}", u);
                 return;
             }
 
-            List<Node> neighbors = u.Neighbors.ToList();
+            List<Node> neighbors = u.Neighbors.OrderBy(n => n.Name, StringComparer.Ordinal).ToList();
 
             while (frame.NeighborIndex < neighbors.Count)
             {
@@ -616,14 +646,14 @@ namespace ArticulationExplorer
                         Children = 0
                     });
 
-                    SaveState($"Jdu z {u.Name} do {v.Name}", u, v);
+                    SaveState($"Jdeme z {u.Name} do {v.Name}", u, v);
                     return;
                 }
 
-                if (v != frame.Parent)
+                if (v != frame.Parent && disc[v] < disc[u])
                 {
                     low[u] = Math.Min(low[u], disc[v]);
-                    SaveState($"Back-edge {u.Name} -> {v.Name}, low[{u.Name}] = {low[u]}", u, v);
+                    SaveState($"Zpětná hrana {u.Name} -> {v.Name}, min[{u.Name}] = {low[u]}", u, v);
                     return;
                 }
 
@@ -637,19 +667,27 @@ namespace ArticulationExplorer
 
                 if (dfsStack.Count > 0)
                 {
-                    low[p] = Math.Min(low[p], low[u]);
 
                     DFSFrame parentFrame = dfsStack.Peek();
 
                     if (parentFrame.Parent != null && low[u] >= disc[p])
                     {
                         articulationPoints.Add(p);
-                        SaveState($"Artikulace nalezena: {p.Name}", p);
+                        SaveState($"Artikulace nalezena: {p.Name}, jelikož (min[{u.Name}]={low[u]}) >= (por[{p.Name}]={disc[p]})", p);
                     }
                     else
                     {
-                        SaveState($"Návrat z {u.Name} do {p.Name}", p);
+                        if (low[p] > low[u])
+                        {
+                            SaveState($"Návrat z {u.Name} do {p.Name}, min[{p.Name}]>min[{u.Name}], takže min[{p.Name}]=min[{u.Name}]", p);
+                        }
+                        else
+                        {
+                            SaveState($"Návrat z {u.Name} do {p.Name}", p);
+                        }
                     }
+
+                    low[p] = Math.Min(low[p], low[u]);
                 }
 
                 return;
@@ -658,7 +696,7 @@ namespace ArticulationExplorer
             if (frame.Children > 1)
             {
                 articulationPoints.Add(u);
-                SaveState($"Kořen je artikulace: {u.Name}", u);
+                SaveState($"Kořen: {u.Name} je artikulace, protože má více než jednoho přímého následníka", u);
             }
             else
             {
@@ -686,37 +724,93 @@ namespace ArticulationExplorer
         }
         private void UpdateInfoPanel(AlgorithmState state)
         {
+            string stackText = "";
+            if (state.Stack.Count != 0)
+            stackText = string.Join("\n", state.Stack
+                .Reverse()
+                .Select(f => f.Node)
+                .Distinct()
+                .Select(n =>
+                {
+                    int d = state.Disc.ContainsKey(n) ? state.Disc[n] : 0;
+                    int l = state.Low.ContainsKey(n) ? state.Low[n] : 0;
+                    return $"{n.Name}({d}, {l})";
+                }));
+
+            string articulationsText = string.Join(", ", state.Articulations
+                    .OrderBy(n => n.Name, StringComparer.Ordinal)
+                    .Select(n => n.Name));
+
             InfoText.Text =
                 $"Krok: {historyIndex}\n" +
                 $"Popis: {state.Description}\n\n" +
-                string.Join("\n", state.Disc.Select(n =>
-                    $"{n.Key.Name}: disc={n.Value}, low={state.Low[n.Key]}"));
+                $"\n\nLIFO:\n{stackText}" +
+                $"\n\nArtikulace:\n{articulationsText}";
         }
         private void RedrawGraph()
         {
-            // 1)hrany
+            //reset hran
             foreach (var edge in edges)
             {
                 edge.Shape.Stroke = Brushes.Black;
+                edge.Shape.StrokeThickness = 2;
             }
 
-            // 2)vrcholy
+            //reset vrcholu
             foreach (var node in nodes)
             {
                 node.Shape.Fill = Brushes.LightBlue;
+                node.Shape.Opacity = 1.0;
+                node.Label.TextDecorations = null;
             }
 
-            // 3)artikulace
+            //uzly v lifo
+            HashSet<Node> nodesOnStack = dfsStack
+                .Select(f => f.Node)
+                .ToHashSet();
+
+            //hotove vrcholy
+            foreach (var node in nodes)
+            {
+                if (disc.ContainsKey(node) && !nodesOnStack.Contains(node))
+                {
+                    node.Shape.Fill = Brushes.LightCyan;
+                }
+            }
+
+            //artikulace
             foreach (var node in articulationPoints)
             {
                 node.Shape.Fill = Brushes.Red;
             }
 
-            // 4)aktualni frame
+
+
+            //aktualni vrchol
             if (dfsStack.Count > 0)
             {
-                var current = dfsStack.Peek().Node;
+                Node current = dfsStack.Peek().Node;
                 current.Shape.Fill = Brushes.Yellow;
+                current.Shape.Opacity = 1.0;
+            }
+
+            //aktualni hrana
+            if (historyIndex >= 0 && historyIndex < history.Count)
+            {
+                AlgorithmState state = history[historyIndex];
+
+                if (state.CurrentNode != null && state.CurrentNeighbor != null)
+                {
+                    Edge? currentEdge = edges.FirstOrDefault(e =>
+                        (e.From == state.CurrentNode && e.To == state.CurrentNeighbor) ||
+                        (e.From == state.CurrentNeighbor && e.To == state.CurrentNode));
+
+                    if (currentEdge != null)
+                    {
+                        currentEdge.Shape.Stroke = Brushes.Orange;
+                        currentEdge.Shape.StrokeThickness = 4;
+                    }
+                }
             }
         }
 
