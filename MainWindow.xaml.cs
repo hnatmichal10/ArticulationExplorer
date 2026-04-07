@@ -13,9 +13,6 @@ using System.Xml.Linq;
 
 namespace ArticulationExplorer
 {
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
     public partial class MainWindow : Window
     {
         public MainWindow()
@@ -52,7 +49,7 @@ namespace ArticulationExplorer
         private Stack<DFSFrame> dfsStack = new();
         private List<AlgorithmState> history = new();
         private List<(Node From, Node To)> bridges = new();
-        private List<List<Node>> blocks = new();
+        private List<List<(Node From, Node To)>> blocks = new();
         private Stack<(Node From, Node To)> edgeStack = new();
         private int historyIndex = -1;
         private bool isSteppingMode = false;
@@ -516,14 +513,12 @@ namespace ArticulationExplorer
 
         private void AddBlockUntilEdge(Node u, Node v)
         {
-            HashSet<Node> blockNodes = new();
+            List<(Node From, Node To)> blockEdges = new();
 
             while (edgeStack.Count > 0)
             {
                 var edge = edgeStack.Pop();
-
-                blockNodes.Add(edge.From);
-                blockNodes.Add(edge.To);
+                blockEdges.Add(edge);
 
                 if ((edge.From == u && edge.To == v) ||
                     (edge.From == v && edge.To == u))
@@ -532,30 +527,49 @@ namespace ArticulationExplorer
                 }
             }
 
-            if (blockNodes.Count > 0)
+            if (blockEdges.Count > 0)
             {
-                blocks.Add(blockNodes
-                    .OrderBy(n => n.Name, StringComparer.Ordinal)
-                    .ToList());
+                string newKey = string.Join(", ", blockEdges
+                    .Select(e => FormatEdge(e.From, e.To))
+                    .OrderBy(s => s, StringComparer.Ordinal));
+
+                bool exists = blocks.Any(b =>
+                    string.Join(", ", b
+                        .Select(e => FormatEdge(e.From, e.To))
+                        .OrderBy(s => s, StringComparer.Ordinal)) == newKey);
+
+                if (!exists)
+                {
+                    blocks.Add(blockEdges);
+                }
             }
         }
 
         private void AddBlockFromRemainingEdges()
         {
-            HashSet<Node> blockNodes = new();
+            List<(Node From, Node To)> blockEdges = new();
 
             while (edgeStack.Count > 0)
             {
                 var edge = edgeStack.Pop();
-                blockNodes.Add(edge.From);
-                blockNodes.Add(edge.To);
+                blockEdges.Add(edge);
             }
 
-            if (blockNodes.Count > 0)
+            if (blockEdges.Count > 0)
             {
-                blocks.Add(blockNodes
-                    .OrderBy(n => n.Name, StringComparer.Ordinal)
-                    .ToList());
+                string newKey = string.Join("|", blockEdges
+                    .Select(e => FormatEdge(e.From, e.To))
+                    .OrderBy(s => s, StringComparer.Ordinal));
+
+                bool exists = blocks.Any(b =>
+                    string.Join("|", b
+                        .Select(e => FormatEdge(e.From, e.To))
+                        .OrderBy(s => s, StringComparer.Ordinal)) == newKey);
+
+                if (!exists)
+                {
+                    blocks.Add(blockEdges);
+                }
             }
         }
         private void HighlightResults()
@@ -592,7 +606,7 @@ namespace ArticulationExplorer
             var lines = new List<string>();
             for (int i = 0; i < blocks.Count; i++)
             {
-                lines.Add($"B{i + 1}: {string.Join(", ", blocks[i].Select(n => n.Name))}");
+                lines.Add($"B{i + 1}: {string.Join(", ", blocks[i].Select(n => FormatEdge(n.From, n.To)))}");
             }
             string blockText = string.Join("\n", lines);
 
@@ -817,7 +831,7 @@ namespace ArticulationExplorer
                     bool closesBlock = low[u] >= disc[p];
                     bool isArticulation = parentFrame.Parent != null && low[u] >= disc[p];
 
-                    List<Node> extractedBlock = new();
+                    List<(Node From, Node To)> extractedBlock = new();
 
                     if (isBridge)
                     {
@@ -837,17 +851,17 @@ namespace ArticulationExplorer
 
                     if (isBridge)
                     {
-                        string blockText = string.Join(", ", extractedBlock.Select(n => n.Name));
+                        string blockText = string.Join(", ", extractedBlock.Select(n => FormatEdge(n.From,n.To)));
 
                         if (isArticulation)
                         {
-                            SaveState($"Most: {FormatUndirectedEdge(p, u)}, protože min[{u.Name}]={low[u]} > por[{p.Name}]={disc[p]}" +
+                            SaveState($"Most: {FormatBridge(p, u)}, protože min[{u.Name}]={low[u]} > por[{p.Name}]={disc[p]}" +
                                 $"\nartikulace: {p.Name} a blok: {blockText}, protože min[{u.Name}]={low[u]} >= por[{p.Name}]={disc[p]}",
                                 p, u);
                         }
                         else
                         {
-                            SaveState($"Most: {FormatUndirectedEdge(p, u)}, protože min[{u.Name}]={low[u]} > por[{p.Name}]={disc[p]}" +
+                            SaveState($"Most: {FormatBridge(p, u)}, protože min[{u.Name}]={low[u]} > por[{p.Name}]={disc[p]}" +
                                 $"\nblok: {blockText}, protože min[{u.Name}]={low[u]} >= por[{p.Name}]={disc[p]}",
                                 p, u);
                         }
@@ -857,7 +871,7 @@ namespace ArticulationExplorer
 
                     if (closesBlock)
                     {
-                        string blockText = string.Join(", ", extractedBlock.Select(n => n.Name));
+                        string blockText = string.Join(", ", extractedBlock.Select(n => FormatEdge(n.From, n.To)));
 
                         if (isArticulation)
                         {
@@ -865,7 +879,7 @@ namespace ArticulationExplorer
                         }
                         else
                         {
-                            SaveState($"Blok {blockText} uzavřen", p, u);
+                            SaveState($"Blok: {blockText} uzavřen", p, u);
                         }
 
                         return;
@@ -939,18 +953,18 @@ namespace ArticulationExplorer
             string bridgesText = string.Join(", ", state.Bridges
                 .OrderBy(b => b.From.Name, StringComparer.Ordinal)
                 .ThenBy(b => b.To.Name, StringComparer.Ordinal)
-                .Select(b => FormatUndirectedEdge(b.From, b.To)));
+                .Select(b => FormatBridge(b.From, b.To)));
 
             var lines = new List<string>();
             for (int i = 0; i < state.Blocks.Count; i++)
             {
-                lines.Add($"B{i + 1}: {string.Join(", ", state.Blocks[i].Select(n => n.Name))}");
+                lines.Add($"B{i + 1}: {string.Join(", ", state.Blocks[i].Select(n => FormatEdge(n.From, n.To)))}");
             }
             string blocksText = string.Join("\n", lines);
 
             string edgeStackText = string.Join(", ", state.EdgeStack
                 .Reverse()
-                .Select(e => $"{e.From.Name}{e.To.Name}"));
+                .Select(e => FormatEdge(e.From,e.To)));
 
 
             InfoText.Text =
@@ -1117,23 +1131,25 @@ namespace ArticulationExplorer
         }
 
         //formatovani mostu
-        private string FormatUndirectedEdge(Node a, Node b)
+        private string FormatBridge(Node a, Node b)
         {
             return StringComparer.Ordinal.Compare(a.Name, b.Name) < 0
                 ? $"{a.Name}{b.Name}"
                 : $"{b.Name}{a.Name}";
         }
-
-        private List<Node> ExtractBlockUntilEdge(Node u, Node v)
+        private string FormatEdge(Node a, Node b)
         {
-            HashSet<Node> blockNodes = new();
+            return $"{a.Name}{b.Name}";
+        }
+
+        private List<(Node From, Node To)> ExtractBlockUntilEdge(Node u, Node v)
+        {
+            List<(Node From, Node To)> blockEdges = new();
 
             while (edgeStack.Count > 0)
             {
                 var edge = edgeStack.Pop();
-
-                blockNodes.Add(edge.From);
-                blockNodes.Add(edge.To);
+                blockEdges.Add(edge);
 
                 if ((edge.From == u && edge.To == v) ||
                     (edge.From == v && edge.To == u))
@@ -1142,26 +1158,23 @@ namespace ArticulationExplorer
                 }
             }
 
-            return blockNodes
-                .OrderBy(n => n.Name, StringComparer.Ordinal)
-                .ToList();
+            return blockEdges;
         }
 
-        private void AddBlock(List<Node> block)
+        private void AddBlock(List<(Node From, Node To)> blockEdges)
         {
-            if (block.Count == 0)
+            if (blockEdges.Count == 0)
                 return;
 
-            string newKey = string.Join(",", block
-                .OrderBy(n => n.Name, StringComparer.Ordinal)
-                .Select(n => n.Name));
+            string key = string.Join(", ", blockEdges.Select(e =>FormatEdge(e.From,e.To)));
 
             bool exists = blocks.Any(b =>
-                string.Join(",", b.OrderBy(n => n.Name, StringComparer.Ordinal).Select(n => n.Name)) == newKey);
+                string.Join(", ", b
+                .Select(e => FormatEdge(e.From, e.To))) == key);
 
             if (!exists)
             {
-                blocks.Add(block);
+                blocks.Add(blockEdges);
             }
         }
     }
