@@ -51,6 +51,9 @@ namespace ArticulationExplorer
         private Dictionary<Node, int> low = new();
         private Stack<DFSFrame> dfsStack = new();
         private List<AlgorithmState> history = new();
+        private List<(Node From, Node To)> bridges = new();
+        private List<List<Node>> blocks = new();
+        private Stack<(Node From, Node To)> edgeStack = new();
         private int historyIndex = -1;
         private bool isSteppingMode = false;
 
@@ -433,79 +436,176 @@ namespace ArticulationExplorer
             return GetNodeName(index);
         }
 
-        //hledani artikulaci
-        private void FindArticulations()
+        //hledani artikulaci, bloku a mostu bez krokovani
+        private void AnalyzeGraph()
         {
-            //reset
-            dfsTime = 0;
-            articulationPoints.Clear();
-            foreach (var node in nodes)
-            {
-                node.Visited = false;
-                node.Parent = null;
-                node.Disc = 0;
-                node.Low = 0;
-                node.Shape.Fill = Brushes.LightBlue;
-            }
+            ResetTarjanData();
 
-            //prochazeni vrcholu
-            foreach (var node in nodes)
+            foreach (var node in nodes.OrderBy(n => n.Name, StringComparer.Ordinal))
             {
                 if (!node.Visited)
                 {
-                    DFS(node);
+                    DFSAnalyze(node);
+
+                    // kdyby po dokončení komponenty něco zůstalo na stacku hran
+                    if (edgeStack.Count > 0)
+                    {
+                        AddBlockFromRemainingEdges();
+                    }
                 }
             }
 
-            //artikulace jsou cervene
-            foreach (var ap in articulationPoints)
-            {
-                ap.Shape.Fill = Brushes.Red;
-            }
+            HighlightResults();
+            ShowAnalysisResults();
         }
 
         //tarjan
-        private void DFS(Node u)
+        private void DFSAnalyze(Node u)
         {
             u.Visited = true;
             u.Disc = u.Low = ++dfsTime;
 
             int children = 0;
 
-            foreach (var v in u.Neighbors)
+            foreach (var v in u.Neighbors.OrderBy(n => n.Name, StringComparer.Ordinal))
             {
-                //stromova hrana
+                // stromová hrana
                 if (!v.Visited)
                 {
                     children++;
                     v.Parent = u;
 
-                    DFS(v);
+                    edgeStack.Push((u, v));
+
+                    DFSAnalyze(v);
 
                     u.Low = Math.Min(u.Low, v.Low);
 
+                    // MOST
+                    if (v.Low > u.Disc)
+                    {
+                        bridges.Add((u, v));
+                    }
+
+                    // ARTIKULACE pro nekořen
                     if (u.Parent != null && v.Low >= u.Disc)
                     {
                         articulationPoints.Add(u);
                     }
+
+                    // BLOK
+                    if (v.Low >= u.Disc)
+                    {
+                        AddBlockUntilEdge(u, v);
+                    }
                 }
-                else if (v != u.Parent)
+                // zpětná hrana k předkovi
+                else if (v != u.Parent && v.Disc < u.Disc)
                 {
                     u.Low = Math.Min(u.Low, v.Disc);
+                    edgeStack.Push((u, v));
                 }
             }
 
-            //korenovy vrchol
+            // ARTIKULACE pro kořen
             if (u.Parent == null && children > 1)
             {
                 articulationPoints.Add(u);
             }
         }
 
-        //tlacitko spustit
-        private void FindArticulations_Click(object sender, RoutedEventArgs e)
+        private void AddBlockUntilEdge(Node u, Node v)
         {
-            FindArticulations();
+            HashSet<Node> blockNodes = new();
+
+            while (edgeStack.Count > 0)
+            {
+                var edge = edgeStack.Pop();
+
+                blockNodes.Add(edge.From);
+                blockNodes.Add(edge.To);
+
+                if ((edge.From == u && edge.To == v) ||
+                    (edge.From == v && edge.To == u))
+                {
+                    break;
+                }
+            }
+
+            if (blockNodes.Count > 0)
+            {
+                blocks.Add(blockNodes
+                    .OrderBy(n => n.Name, StringComparer.Ordinal)
+                    .ToList());
+            }
+        }
+
+        private void AddBlockFromRemainingEdges()
+        {
+            HashSet<Node> blockNodes = new();
+
+            while (edgeStack.Count > 0)
+            {
+                var edge = edgeStack.Pop();
+                blockNodes.Add(edge.From);
+                blockNodes.Add(edge.To);
+            }
+
+            if (blockNodes.Count > 0)
+            {
+                blocks.Add(blockNodes
+                    .OrderBy(n => n.Name, StringComparer.Ordinal)
+                    .ToList());
+            }
+        }
+        private void HighlightResults()
+        {
+            foreach (var node in articulationPoints)
+            {
+                node.Shape.Fill = Brushes.Red;
+            }
+
+            foreach (var bridge in bridges)
+            {
+                Edge? edge = edges.FirstOrDefault(e =>
+                    (e.From == bridge.From && e.To == bridge.To) ||
+                    (e.From == bridge.To && e.To == bridge.From));
+
+                if (edge != null)
+                {
+                    edge.Shape.Stroke = Brushes.Red;
+                }
+            }
+        }
+        private void ShowAnalysisResults()
+        {
+            string articulationText = string.Join(", ", articulationPoints
+                    .OrderBy(n => n.Name, StringComparer.Ordinal)
+                    .Select(n => n.Name));
+
+            string bridgeText = string.Join("\n", bridges
+                    .OrderBy(b => b.From.Name, StringComparer.Ordinal)
+                    .ThenBy(b => b.To.Name, StringComparer.Ordinal)
+                    .Select(b => $"{b.From.Name}{b.To.Name}"));
+
+
+            var lines = new List<string>();
+            for (int i = 0; i < blocks.Count; i++)
+            {
+                lines.Add($"B{i + 1}: {string.Join(", ", blocks[i].Select(n => n.Name))}");
+            }
+            string blockText = string.Join("\n", lines);
+
+            InfoText.Text =
+                $"Artikulace:\n{articulationText}\n\n" +
+                $"Mosty:\n{bridgeText}\n\n" +
+                $"Bloky:\n{blockText}";
+        }
+
+        //tlacitko spustit
+        private void AnalyzeGraph_Click(object sender, RoutedEventArgs e)
+        {
+            AnalyzeGraph();
         }
 
         private void ClearGraph()
@@ -533,6 +633,30 @@ namespace ArticulationExplorer
             ClearGraph();
         }
 
+        private void ResetTarjanData()
+        {
+            dfsTime = 0;
+            articulationPoints.Clear();
+            bridges.Clear();
+            blocks.Clear();
+            edgeStack.Clear();
+
+            foreach (var node in nodes)
+            {
+                node.Visited = false;
+                node.Parent = null;
+                node.Disc = 0;
+                node.Low = 0;
+                node.Shape.Fill = Brushes.LightBlue;
+            }
+
+            foreach (var edge in edges)
+            {
+                edge.Shape.Stroke = Brushes.Black;
+                edge.Shape.StrokeThickness = 2;
+            }
+        }
+
         //krokovani
         private void SaveState(string description, Node? current = null, Node? neighbor = null)
         {
@@ -547,6 +671,8 @@ namespace ArticulationExplorer
                 Disc = disc.ToDictionary(e => e.Key, e => e.Value),
                 Low = low.ToDictionary(e => e.Key, e => e.Value),
                 Articulations = new HashSet<Node>(articulationPoints),
+                Bridges = new List<(Node From, Node To)>(bridges),
+                Blocks = blocks.Select(b => b.ToList()).ToList(),
                 Stack = new Stack<DFSFrame>(dfsStack.Reverse().Select(f =>
                     new DFSFrame
                     {
@@ -555,6 +681,7 @@ namespace ArticulationExplorer
                         NeighborIndex = f.NeighborIndex,
                         Children = f.Children
                     })),
+                EdgeStack = new Stack<(Node From, Node To)>(edgeStack.Reverse()),
                 CurrentNode = current,
                 CurrentNeighbor = neighbor,
                 Description = description
@@ -572,11 +699,18 @@ namespace ArticulationExplorer
             disc.Clear();
             low.Clear();
             articulationPoints.Clear();
+            bridges.Clear();
+            blocks.Clear();
             dfsStack.Clear();
+            edgeStack.Clear();
+
             history.Clear();
+            historyIndex = -1;
             dfsTime = 0;
 
-            Node start = nodes.First();
+            Node start = nodes
+                .OrderBy(n => n.Name, StringComparer.Ordinal)
+                .First();
 
             dfsStack.Push(new DFSFrame
             {
@@ -621,6 +755,7 @@ namespace ArticulationExplorer
             DFSFrame frame = dfsStack.Peek();
             Node u = frame.Node;
 
+            //prvni vrchol
             if (!disc.ContainsKey(u))
             {
                 disc[u] = low[u] = ++dfsTime;
@@ -628,16 +763,20 @@ namespace ArticulationExplorer
                 return;
             }
 
-            List<Node> neighbors = u.Neighbors.OrderBy(n => n.Name, StringComparer.Ordinal).ToList();
+            List<Node> neighbors = u.Neighbors
+                .OrderBy(n => n.Name, StringComparer.Ordinal)
+                .ToList();
 
             while (frame.NeighborIndex < neighbors.Count)
             {
                 Node v = neighbors[frame.NeighborIndex++];
 
+                //stromova hrana
                 if (!disc.ContainsKey(v))
                 {
                     frame.Children++;
 
+                    edgeStack.Push((u, v));
                     dfsStack.Push(new DFSFrame
                     {
                         Node = v,
@@ -645,20 +784,22 @@ namespace ArticulationExplorer
                         NeighborIndex = 0,
                         Children = 0
                     });
-
                     SaveState($"Jdeme z {u.Name} do {v.Name}", u, v);
                     return;
                 }
 
+                //nestromova hrana
                 if (v != frame.Parent && disc[v] < disc[u])
                 {
                     low[u] = Math.Min(low[u], disc[v]);
-                    SaveState($"Zpětná hrana {u.Name} -> {v.Name}, min[{u.Name}] = {low[u]}", u, v);
+                    edgeStack.Push((u, v));
+                    SaveState($"Nestromová hrana {u.Name}{v.Name}, min[{u.Name}] = {low[u]}", u, v);
                     return;
                 }
 
             }
 
+            //navrat z vrcholu, jsme v nejnizsi vrstve
             dfsStack.Pop();
 
             if (frame.Parent != null)
@@ -667,32 +808,83 @@ namespace ArticulationExplorer
 
                 if (dfsStack.Count > 0)
                 {
-
                     DFSFrame parentFrame = dfsStack.Peek();
 
-                    if (parentFrame.Parent != null && low[u] >= disc[p])
+                    int oldLowP = low[p];
+                    low[p] = Math.Min(low[p], low[u]);
+
+                    bool isBridge = low[u] > disc[p];
+                    bool closesBlock = low[u] >= disc[p];
+                    bool isArticulation = parentFrame.Parent != null && low[u] >= disc[p];
+
+                    List<Node> extractedBlock = new();
+
+                    if (isBridge)
+                    {
+                        bridges.Add((p, u));
+                    }
+
+                    if (closesBlock)
+                    {
+                        extractedBlock = ExtractBlockUntilEdge(p, u);
+                        AddBlock(extractedBlock);
+                    }
+
+                    if (isArticulation)
                     {
                         articulationPoints.Add(p);
-                        SaveState($"Artikulace nalezena: {p.Name}, jelikož (min[{u.Name}]={low[u]}) >= (por[{p.Name}]={disc[p]})", p);
                     }
-                    else
+
+                    if (isBridge)
                     {
-                        if (low[p] > low[u])
+                        string blockText = string.Join(", ", extractedBlock.Select(n => n.Name));
+
+                        if (isArticulation)
                         {
-                            SaveState($"Návrat z {u.Name} do {p.Name}, min[{p.Name}]>min[{u.Name}], takže min[{p.Name}]=min[{u.Name}]", p);
+                            SaveState($"Most: {FormatUndirectedEdge(p, u)}, protože min[{u.Name}]={low[u]} > por[{p.Name}]={disc[p]}" +
+                                $"\nartikulace: {p.Name} a blok: {blockText}, protože min[{u.Name}]={low[u]} >= por[{p.Name}]={disc[p]}",
+                                p, u);
                         }
                         else
                         {
-                            SaveState($"Návrat z {u.Name} do {p.Name}", p);
+                            SaveState($"Most: {FormatUndirectedEdge(p, u)}, protože min[{u.Name}]={low[u]} > por[{p.Name}]={disc[p]}" +
+                                $"\nblok: {blockText}, protože min[{u.Name}]={low[u]} >= por[{p.Name}]={disc[p]}",
+                                p, u);
                         }
+
+                        return;
                     }
 
-                    low[p] = Math.Min(low[p], low[u]);
+                    if (closesBlock)
+                    {
+                        string blockText = string.Join(", ", extractedBlock.Select(n => n.Name));
+
+                        if (isArticulation)
+                        {
+                            SaveState($"Artikulace: {p.Name} a blok: {blockText}, protože min[{u.Name}]={low[u]} >= por[{p.Name}]={disc[p]}", p, u);
+                        }
+                        else
+                        {
+                            SaveState($"Blok {blockText} uzavřen", p, u);
+                        }
+
+                        return;
+                    }
+
+                    if (oldLowP > low[u])
+                    {
+                        SaveState($"Návrat z {u.Name} do {p.Name}, min[{p.Name}] se mění na {low[p]}, protože min[{p.Name}]={oldLowP} > min[{u.Name}]={low[u]}", p, u);
+                    }
+                    else
+                    {
+                        SaveState($"Návrat z {u.Name} do {p.Name}", p, u);
+                    }
                 }
 
                 return;
             }
 
+            //je koren artikulace?
             if (frame.Children > 1)
             {
                 articulationPoints.Add(u);
@@ -700,7 +892,7 @@ namespace ArticulationExplorer
             }
             else
             {
-                SaveState($"DFS dokončeno pro kořen {u.Name}", u);
+                SaveState($"Algoritmus dokončen pro kořen {u.Name}", u);
             }
         }
         private void LoadState(AlgorithmState state)
@@ -708,7 +900,10 @@ namespace ArticulationExplorer
             disc = state.Disc.ToDictionary(e => e.Key, e => e.Value);
             low = state.Low.ToDictionary(e => e.Key, e => e.Value);
             articulationPoints = new HashSet<Node>(state.Articulations);
+            bridges = new List<(Node From, Node To)>(state.Bridges);
+            blocks = state.Blocks.Select(b => b.ToList()).ToList();
             dfsStack = new Stack<DFSFrame>(state.Stack.Reverse());
+            edgeStack = new Stack<(Node From, Node To)>(state.EdgeStack.Reverse());
 
             RedrawGraph();
             UpdateInfoPanel(state);
@@ -738,14 +933,34 @@ namespace ArticulationExplorer
                 }));
 
             string articulationsText = string.Join(", ", state.Articulations
-                    .OrderBy(n => n.Name, StringComparer.Ordinal)
-                    .Select(n => n.Name));
+                .OrderBy(n => n.Name, StringComparer.Ordinal)
+                .Select(n => n.Name));
+
+            string bridgesText = string.Join(", ", state.Bridges
+                .OrderBy(b => b.From.Name, StringComparer.Ordinal)
+                .ThenBy(b => b.To.Name, StringComparer.Ordinal)
+                .Select(b => FormatUndirectedEdge(b.From, b.To)));
+
+            var lines = new List<string>();
+            for (int i = 0; i < state.Blocks.Count; i++)
+            {
+                lines.Add($"B{i + 1}: {string.Join(", ", state.Blocks[i].Select(n => n.Name))}");
+            }
+            string blocksText = string.Join("\n", lines);
+
+            string edgeStackText = string.Join(", ", state.EdgeStack
+                .Reverse()
+                .Select(e => $"{e.From.Name}{e.To.Name}"));
+
 
             InfoText.Text =
-                $"Krok: {historyIndex}\n" +
-                $"Popis: {state.Description}\n\n" +
+                $"Krok {historyIndex}\n" +
+                $"Popis:\n{state.Description}\n\n" +
                 $"\n\nLIFO:\n{stackText}" +
-                $"\n\nArtikulace:\n{articulationsText}";
+                $"\n\nHrany:\n{edgeStackText}" +
+                $"\n\nArtikulace:\n{articulationsText}" +
+                $"\n\nMosty:\n{bridgesText}" +
+                $"\n\nBloky:\n{blocksText}";
         }
         private void RedrawGraph()
         {
@@ -764,17 +979,17 @@ namespace ArticulationExplorer
                 node.Label.TextDecorations = null;
             }
 
-            //uzly v lifo
+            //vrcholy v lifu
             HashSet<Node> nodesOnStack = dfsStack
                 .Select(f => f.Node)
                 .ToHashSet();
 
-            //hotove vrcholy
+            //projite vrcholy
             foreach (var node in nodes)
             {
-                if (disc.ContainsKey(node) && !nodesOnStack.Contains(node))
+                if (disc.ContainsKey(node))
                 {
-                    node.Shape.Fill = Brushes.LightCyan;
+                    node.Shape.Fill = Brushes.Cyan;
                 }
             }
 
@@ -784,7 +999,19 @@ namespace ArticulationExplorer
                 node.Shape.Fill = Brushes.Red;
             }
 
+            // mosty
+            foreach (var bridge in bridges)
+            {
+                Edge? edge = edges.FirstOrDefault(e =>
+                    (e.From == bridge.From && e.To == bridge.To) ||
+                    (e.From == bridge.To && e.To == bridge.From));
 
+                if (edge != null)
+                {
+                    edge.Shape.Stroke = Brushes.Red;
+                    edge.Shape.StrokeThickness = 2;
+                }
+            }
 
             //aktualni vrchol
             if (dfsStack.Count > 0)
@@ -821,7 +1048,10 @@ namespace ArticulationExplorer
             disc.Clear();
             low.Clear();
             dfsStack.Clear();
+            edgeStack.Clear();
             articulationPoints.Clear();
+            bridges.Clear();
+            blocks.Clear();
 
             history.Clear();
             historyIndex = -1;
@@ -880,10 +1110,59 @@ namespace ArticulationExplorer
             StepForwardButton.IsEnabled = isSteppingMode;
             ResetAlgorithmButton.IsEnabled = isSteppingMode;
             StartAlgorithmButton.IsEnabled = !isSteppingMode && nodes.Count > 0;
-            FindArticulationsButton.IsEnabled = !isSteppingMode;
+            AnalyzeGraphButton.IsEnabled = !isSteppingMode;
             ClearGraphButton.IsEnabled = !isSteppingMode;
 
             GraphCanvas.Cursor = isSteppingMode ? Cursors.No : Cursors.Arrow;
+        }
+
+        //formatovani mostu
+        private string FormatUndirectedEdge(Node a, Node b)
+        {
+            return StringComparer.Ordinal.Compare(a.Name, b.Name) < 0
+                ? $"{a.Name}{b.Name}"
+                : $"{b.Name}{a.Name}";
+        }
+
+        private List<Node> ExtractBlockUntilEdge(Node u, Node v)
+        {
+            HashSet<Node> blockNodes = new();
+
+            while (edgeStack.Count > 0)
+            {
+                var edge = edgeStack.Pop();
+
+                blockNodes.Add(edge.From);
+                blockNodes.Add(edge.To);
+
+                if ((edge.From == u && edge.To == v) ||
+                    (edge.From == v && edge.To == u))
+                {
+                    break;
+                }
+            }
+
+            return blockNodes
+                .OrderBy(n => n.Name, StringComparer.Ordinal)
+                .ToList();
+        }
+
+        private void AddBlock(List<Node> block)
+        {
+            if (block.Count == 0)
+                return;
+
+            string newKey = string.Join(",", block
+                .OrderBy(n => n.Name, StringComparer.Ordinal)
+                .Select(n => n.Name));
+
+            bool exists = blocks.Any(b =>
+                string.Join(",", b.OrderBy(n => n.Name, StringComparer.Ordinal).Select(n => n.Name)) == newKey);
+
+            if (!exists)
+            {
+                blocks.Add(block);
+            }
         }
     }
 }
