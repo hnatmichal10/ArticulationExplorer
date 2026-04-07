@@ -438,13 +438,14 @@ namespace ArticulationExplorer
         {
             ResetTarjanData();
 
-            foreach (var node in nodes.OrderBy(n => n.Name, StringComparer.Ordinal))
+            foreach (var node in nodes.OrderBy(n => n.Name,
+                StringComparer.Ordinal))
             {
                 if (!node.Visited)
                 {
                     DFSAnalyze(node);
 
-                    // kdyby po dokončení komponenty něco zůstalo na stacku hran
+                    //zbytek hran po dokonceni komponenty
                     if (edgeStack.Count > 0)
                     {
                         AddBlockFromRemainingEdges();
@@ -456,7 +457,6 @@ namespace ArticulationExplorer
             ShowAnalysisResults();
         }
 
-        //tarjan
         private void DFSAnalyze(Node u)
         {
             u.Visited = true;
@@ -464,9 +464,10 @@ namespace ArticulationExplorer
 
             int children = 0;
 
-            foreach (var v in u.Neighbors.OrderBy(n => n.Name, StringComparer.Ordinal))
+            foreach (var v in u.Neighbors.OrderBy(n => n.Name,
+                StringComparer.Ordinal))
             {
-                // stromová hrana
+                //stromová hrana
                 if (!v.Visited)
                 {
                     children++;
@@ -478,25 +479,25 @@ namespace ArticulationExplorer
 
                     u.Low = Math.Min(u.Low, v.Low);
 
-                    // MOST
+                    //most
                     if (v.Low > u.Disc)
                     {
                         bridges.Add((u, v));
                     }
 
-                    // ARTIKULACE pro nekořen
+                    //artikulace pro nekořen
                     if (u.Parent != null && v.Low >= u.Disc)
                     {
                         articulationPoints.Add(u);
                     }
 
-                    // BLOK
+                    //blok
                     if (v.Low >= u.Disc)
                     {
                         AddBlockUntilEdge(u, v);
                     }
                 }
-                // zpětná hrana k předkovi
+                //nestromová hrana
                 else if (v != u.Parent && v.Disc < u.Disc)
                 {
                     u.Low = Math.Min(u.Low, v.Disc);
@@ -504,13 +505,14 @@ namespace ArticulationExplorer
                 }
             }
 
-            // ARTIKULACE pro kořen
+            //artikulace pro kořen
             if (u.Parent == null && children > 1)
             {
                 articulationPoints.Add(u);
             }
         }
 
+        //přidání bloku po určitou hranu
         private void AddBlockUntilEdge(Node u, Node v)
         {
             List<(Node From, Node To)> blockEdges = new();
@@ -545,6 +547,7 @@ namespace ArticulationExplorer
             }
         }
 
+        //přidání zbylých hran
         private void AddBlockFromRemainingEdges()
         {
             List<(Node From, Node To)> blockEdges = new();
@@ -557,12 +560,12 @@ namespace ArticulationExplorer
 
             if (blockEdges.Count > 0)
             {
-                string newKey = string.Join("|", blockEdges
+                string newKey = string.Join(", ", blockEdges
                     .Select(e => FormatEdge(e.From, e.To))
                     .OrderBy(s => s, StringComparer.Ordinal));
 
                 bool exists = blocks.Any(b =>
-                    string.Join("|", b
+                    string.Join(", ", b
                         .Select(e => FormatEdge(e.From, e.To))
                         .OrderBy(s => s, StringComparer.Ordinal)) == newKey);
 
@@ -572,6 +575,33 @@ namespace ArticulationExplorer
                 }
             }
         }
+
+        //reset všech pomocných dat
+        private void ResetTarjanData()
+        {
+            dfsTime = 0;
+            articulationPoints.Clear();
+            bridges.Clear();
+            blocks.Clear();
+            edgeStack.Clear();
+
+            foreach (var node in nodes)
+            {
+                node.Visited = false;
+                node.Parent = null;
+                node.Disc = 0;
+                node.Low = 0;
+                node.Shape.Fill = Brushes.LightBlue;
+            }
+
+            foreach (var edge in edges)
+            {
+                edge.Shape.Stroke = Brushes.Black;
+                edge.Shape.StrokeThickness = 2;
+            }
+        }
+
+        //zvýraznění artikulací a mostů
         private void HighlightResults()
         {
             foreach (var node in articulationPoints)
@@ -591,13 +621,15 @@ namespace ArticulationExplorer
                 }
             }
         }
+
+        //výpis nalezených artikulací, mostů a bloků
         private void ShowAnalysisResults()
         {
             string articulationText = string.Join(", ", articulationPoints
                     .OrderBy(n => n.Name, StringComparer.Ordinal)
                     .Select(n => n.Name));
 
-            string bridgeText = string.Join("\n", bridges
+            string bridgeText = string.Join(", ", bridges
                     .OrderBy(b => b.From.Name, StringComparer.Ordinal)
                     .ThenBy(b => b.To.Name, StringComparer.Ordinal)
                     .Select(b => $"{b.From.Name}{b.To.Name}"));
@@ -606,7 +638,9 @@ namespace ArticulationExplorer
             var lines = new List<string>();
             for (int i = 0; i < blocks.Count; i++)
             {
-                lines.Add($"B{i + 1}: {string.Join(", ", blocks[i].Select(n => FormatEdge(n.From, n.To)))}");
+                lines.Add($"B{i + 1}: {string.Join(", ",
+                    blocks[i].Select(n => FormatEdge(n.From, n.To))
+                    .Reverse())}");
             }
             string blockText = string.Join("\n", lines);
 
@@ -647,29 +681,7 @@ namespace ArticulationExplorer
             ClearGraph();
         }
 
-        private void ResetTarjanData()
-        {
-            dfsTime = 0;
-            articulationPoints.Clear();
-            bridges.Clear();
-            blocks.Clear();
-            edgeStack.Clear();
 
-            foreach (var node in nodes)
-            {
-                node.Visited = false;
-                node.Parent = null;
-                node.Disc = 0;
-                node.Low = 0;
-                node.Shape.Fill = Brushes.LightBlue;
-            }
-
-            foreach (var edge in edges)
-            {
-                edge.Shape.Stroke = Brushes.Black;
-                edge.Shape.StrokeThickness = 2;
-            }
-        }
 
         //krokovani
         private void SaveState(string description, Node? current = null, Node? neighbor = null)
@@ -958,7 +970,7 @@ namespace ArticulationExplorer
             var lines = new List<string>();
             for (int i = 0; i < state.Blocks.Count; i++)
             {
-                lines.Add($"B{i + 1}: {string.Join(", ", state.Blocks[i].Select(n => FormatEdge(n.From, n.To)))}");
+                lines.Add($"B{i + 1}: {string.Join(", ", state.Blocks[i].Select(n => FormatEdge(n.From, n.To)).Reverse())}");
             }
             string blocksText = string.Join("\n", lines);
 
