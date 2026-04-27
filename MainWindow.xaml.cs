@@ -1,5 +1,6 @@
 ﻿using ArticulationExplorer.Model;
 using System.Text;
+using System.Data;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -53,6 +54,9 @@ namespace ArticulationExplorer
         private Stack<(Node From, Node To)> edgeStack = new();
         private int historyIndex = -1;
         private bool isSteppingMode = false;
+
+        //prepina grafu a matice
+        private bool showingMatrix = false;
 
         //pridani vrcholu
         private void GraphCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -209,9 +213,8 @@ namespace ArticulationExplorer
                 RemoveNode(node);
                 e.Handled = true;
 
-                UpdateControls();
             };
-
+            UpdateControls();
         }
         private void HandleNodeClick(Node node)
         {
@@ -388,6 +391,7 @@ namespace ArticulationExplorer
             GraphCanvas.Children.Remove(node.Label);
 
             nodes.Remove(node);
+            UpdateControls();
         }
 
         //jmena vrcholu (pismena)
@@ -674,6 +678,7 @@ namespace ArticulationExplorer
             nodeCounter = 0;
             InfoText.Text = "";
             UpdateControls();
+            RefreshMatrixView();
         }
 
         private void ClearGraph_Click(object sender, RoutedEventArgs e)
@@ -779,17 +784,17 @@ namespace ArticulationExplorer
                 return;
 
             DFSFrame frame = dfsStack.Peek();
-            Node u = frame.Node;
+            Node? u = frame.Node;
 
             //prvni vrchol
-            if (!disc.ContainsKey(u))
+            if (!disc.ContainsKey(u!))
             {
-                disc[u] = low[u] = ++dfsTime;
-                SaveState($"Navštíven vrchol {u.Name}, por=min={dfsTime}", u);
+                disc[u!] = low[u!] = ++dfsTime;
+                SaveState($"Navštíven vrchol {u!.Name}, por=min={dfsTime}", u);
                 return;
             }
 
-            List<Node> neighbors = u.Neighbors
+            List<Node> neighbors = u!.Neighbors
                 .OrderBy(n => n.Name, StringComparer.Ordinal)
                 .ToList();
 
@@ -953,9 +958,9 @@ namespace ArticulationExplorer
                 .Distinct()
                 .Select(n =>
                 {
-                    int d = state.Disc.ContainsKey(n) ? state.Disc[n] : 0;
-                    int l = state.Low.ContainsKey(n) ? state.Low[n] : 0;
-                    return $"{n.Name}({d}, {l})";
+                    int d = state.Disc.ContainsKey(n!) ? state.Disc[n!] : 0;
+                    int l = state.Low.ContainsKey(n!) ? state.Low[n!] : 0;
+                    return $"{n!.Name}({d}, {l})";
                 }));
 
             string articulationsText = string.Join(", ", state.Articulations
@@ -1006,7 +1011,7 @@ namespace ArticulationExplorer
             }
 
             //vrcholy v lifu
-            HashSet<Node> nodesOnStack = dfsStack
+            HashSet<Node?> nodesOnStack = dfsStack
                 .Select(f => f.Node)
                 .ToHashSet();
 
@@ -1042,8 +1047,8 @@ namespace ArticulationExplorer
             //aktualni vrchol
             if (dfsStack.Count > 0)
             {
-                Node current = dfsStack.Peek().Node;
-                current.Shape.Fill = Brushes.Yellow;
+                Node? current = dfsStack.Peek().Node;
+                current!.Shape.Fill = Brushes.Yellow;
                 current.Shape.Opacity = 1.0;
             }
 
@@ -1187,6 +1192,221 @@ namespace ArticulationExplorer
             if (!exists)
             {
                 blocks.Add(blockEdges);
+            }
+        }
+
+        //prepinani grafu a matice
+        private void ToggleView_Click(object sender, RoutedEventArgs e)
+        {
+            showingMatrix = !showingMatrix;
+
+            if (showingMatrix)
+            {
+                RefreshMatrixView();
+
+                GraphCanvas.Visibility = Visibility.Collapsed;
+                MatrixPanel.Visibility = Visibility.Visible;
+
+                ToggleViewButton.Content = "graf";
+            }
+            else
+            {
+                GraphCanvas.Visibility = Visibility.Visible;
+                MatrixPanel.Visibility = Visibility.Collapsed;
+
+                ToggleViewButton.Content = "matice";
+            }
+        }
+
+        private void RefreshMatrixView()
+        {
+            var orderedNodes = nodes
+                .OrderBy(n => n.Name, StringComparer.Ordinal)
+                .ToList();
+
+            DataTable table = new DataTable();
+
+            table.Columns.Add("Vrcholy");
+
+            foreach (var node in orderedNodes)
+            {
+                table.Columns.Add(node.Name);
+            }
+
+            foreach (var rowNode in orderedNodes)
+            {
+                DataRow row = table.NewRow();
+                row[0] = rowNode.Name;
+
+                for (int j = 0; j < orderedNodes.Count; j++)
+                {
+                    Node colNode = orderedNodes[j];
+
+                    bool connected = edges.Any(e =>
+                        (e.From == rowNode && e.To == colNode) ||
+                        (e.From == colNode && e.To == rowNode));
+
+                    row[j + 1] = connected ? 1 : 0;
+                }
+
+                table.Rows.Add(row);
+            }
+
+            MatrixGrid.ItemsSource = table.DefaultView;
+        }
+
+        //edit matice
+        private void MatrixGrid_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (isSteppingMode)
+                return;
+
+            DependencyObject source = (DependencyObject)e.OriginalSource;
+
+            DataGridCell? cell = FindParent<DataGridCell>(source);
+            if (cell == null)
+                return;
+
+            DataGridRow? row = FindParent<DataGridRow>(cell);
+            if (row == null)
+                return;
+
+            int rowIndex = row.GetIndex();
+            int colIndex = cell.Column.DisplayIndex;
+
+            //prvni sloupec
+            if (colIndex == 0)
+                return;
+
+            var orderedNodes = nodes
+                .OrderBy(n => n.Name, StringComparer.Ordinal)
+                .ToList();
+
+            if (rowIndex >= orderedNodes.Count || colIndex - 1 >= orderedNodes.Count)
+                return;
+
+            Node rowNode = orderedNodes[rowIndex];
+            Node colNode = orderedNodes[colIndex - 1];
+
+            if (rowNode == colNode)
+                return;
+
+            Edge? edge = GetEdgeBetween(rowNode, colNode);
+
+            if (edge != null)
+                RemoveEdge(edge);
+            else
+                AddEdge(rowNode, colNode);
+
+            RefreshMatrixView();
+
+            e.Handled = true;
+        }
+        private Edge? GetEdgeBetween(Node a, Node b)
+        {
+            return edges.FirstOrDefault(e =>
+                (e.From == a && e.To == b) ||
+                (e.From == b && e.To == a));
+        }
+        private T? FindParent<T>(DependencyObject child) where T : DependencyObject
+        {
+            while (child != null)
+            {
+                if (child is T parent)
+                    return parent;
+
+                child = VisualTreeHelper.GetParent(child);
+            }
+
+            return null;
+        }
+        private void AddNodeFromMatrix_Click(object sender, RoutedEventArgs e)
+        {
+            if (isSteppingMode)
+                return;
+
+            AddNode(0, 0);
+            ArrangeNodesInCircle();
+            RefreshMatrixView();
+        }
+        private void RemoveNodeFromMatrix_Click(object sender, RoutedEventArgs e)
+        {
+            if (isSteppingMode)
+                return;
+
+            Node? node = GetSelectedMatrixNode();
+
+            if (node == null)
+            {
+                MessageBox.Show("Nejdříve vyberte řádek nebo buňku vrcholu v matici.");
+                return;
+            }
+
+            RemoveNode(node);
+            RefreshMatrixView();
+        }
+        private Node? GetSelectedMatrixNode()
+        {
+            DataRowView? rowView = null;
+
+            if (MatrixGrid.SelectedCells.Count > 0)
+            {
+                rowView = MatrixGrid.SelectedCells[0].Item as DataRowView;
+            }
+
+            if (rowView == null)
+            {
+                rowView = MatrixGrid.SelectedItem as DataRowView;
+            }
+
+            if (rowView == null)
+            {
+                rowView = MatrixGrid.CurrentItem as DataRowView;
+            }
+
+            if (rowView == null)
+                return null;
+
+            string nodeName = rowView.Row[0]?.ToString() ?? "";
+
+            if (string.IsNullOrWhiteSpace(nodeName))
+                return null;
+
+            return nodes.FirstOrDefault(n => n.Name == nodeName);
+        }
+        private void ArrangeNodesInCircle()
+        {
+            if (nodes.Count == 0)
+                return;
+
+            double canvasWidth = GraphCanvas.ActualWidth > 0 ? GraphCanvas.ActualWidth : 800;
+            double canvasHeight = GraphCanvas.ActualHeight > 0 ? GraphCanvas.ActualHeight : 600;
+
+            double centerX = canvasWidth / 2;
+            double centerY = canvasHeight / 2;
+
+            double radius = Math.Min(canvasWidth, canvasHeight) * 0.35;
+
+            var orderedNodes = nodes
+                .OrderBy(n => n.Name, StringComparer.Ordinal)
+                .ToList();
+
+            for (int i = 0; i < orderedNodes.Count; i++)
+            {
+                double angle = 2 * Math.PI * i / orderedNodes.Count - Math.PI / 2;
+
+                Node node = orderedNodes[i];
+
+                node.X = centerX + radius * Math.Cos(angle);
+                node.Y = centerY + radius * Math.Sin(angle);
+
+                Canvas.SetLeft(node.Shape, node.X - 15);
+                Canvas.SetTop(node.Shape, node.Y - 15);
+
+                Canvas.SetLeft(node.Label, node.X - 5);
+                Canvas.SetTop(node.Label, node.Y - 8);
+
+                UpdateEdges(node);
             }
         }
     }

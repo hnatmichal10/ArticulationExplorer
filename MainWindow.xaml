@@ -5,11 +5,32 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ArticulationExplorer"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800"
+        Title="Articulation Explorer" 
+        Height="450" 
+        Width="800"
         WindowState="Maximized"
         ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen">
-    
+
+    <Window.Resources>
+
+        <Style x:Key="MatrixCellStyle" TargetType="DataGridCell">
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="Padding" Value="8"/>
+
+            <Style.Triggers>
+
+                <DataTrigger Binding="{Binding Content.Text, RelativeSource={RelativeSource Self}}" Value="1">
+                    <Setter Property="FontWeight" Value="Bold"/>
+                </DataTrigger>
+
+            </Style.Triggers>
+        </Style>
+
+    </Window.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -17,6 +38,13 @@
         </Grid.RowDefinitions>
 
         <StackPanel Orientation="Horizontal" Background="LightGray">
+            <!-- prepinani grafu a matice -->
+            <Button x:Name="ToggleViewButton"
+            Content="matice"
+            Padding="5"
+            Margin="10"
+            Click="ToggleView_Click"/>
+
             <!-- bez krokovani -->
             <Button x:Name="AnalyzeGraphButton" 
                     Content="spustit"
@@ -29,6 +57,7 @@
                     Padding="5"
                     Margin="10"
                     Click="ClearGraph_Click"/>
+
             <!-- s krokovanim -->
             <Button x:Name="StartAlgorithmButton"
                     Content="spustit krokování" 
@@ -61,9 +90,52 @@
                 <ColumnDefinition Width="300" />
             </Grid.ColumnDefinitions>
 
-            <Canvas x:Name="GraphCanvas"
-                    Grid.Column="0"
-                    Background="White"/>
+            <Grid Grid.Column="0">
+                <Canvas x:Name="GraphCanvas"
+                        Background="White"
+                        Visibility="Visible"/>
+
+                <Grid x:Name="MatrixPanel"
+                      Visibility="Collapsed"
+                      Margin="10"
+                      VerticalAlignment="Top">
+
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <DataGrid x:Name="MatrixGrid"
+                              Grid.Row="0"
+                              AutoGenerateColumns="True"
+                              IsReadOnly="True"
+                              HeadersVisibility="All"
+                              GridLinesVisibility="All"
+                              SelectionMode="Single"
+                              SelectionUnit="Cell"
+                              CellStyle="{StaticResource MatrixCellStyle}"
+                              PreviewMouseRightButtonDown="MatrixGrid_MouseRightButtonDown"
+                              MaxHeight="600"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+
+                    <StackPanel Grid.Row="1"
+                                Orientation="Horizontal"
+                                HorizontalAlignment="Left"
+                                Margin="0,10,0,0">
+
+                        <Button x:Name="AddNodeFromMatrixButton"
+                                Content="+"
+                                Padding="13.5,5,13.5,5"
+                                Margin="0,0,15,0"
+                                Click="AddNodeFromMatrix_Click"/>
+
+                        <Button x:Name="RemoveNodeFromMatrixButton"
+                                Content="-"
+                                Padding="15,5,15,5"
+                                Click="RemoveNodeFromMatrix_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
 
             <TextBlock x:Name="InfoText"
                        Grid.Column="1"
@@ -71,6 +143,7 @@
                        TextWrapping="Wrap"
                        FontFamily="Consolas"
                        VerticalAlignment="Top"/>
+            
         </Grid>
     </Grid>
 </Window>
