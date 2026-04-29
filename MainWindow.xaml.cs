@@ -1,8 +1,9 @@
 ﻿using ArticulationExplorer.Model;
-using System.Text;
 using System.Data;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
@@ -54,6 +55,7 @@ namespace ArticulationExplorer
         private Stack<(Node From, Node To)> edgeStack = new();
         private int historyIndex = -1;
         private bool isSteppingMode = false;
+        private List<(Node From, Node To)> traversedEdgePairs = new();
 
         //prepina grafu a matice
         private bool showingMatrix = false;
@@ -704,6 +706,7 @@ namespace ArticulationExplorer
                 Articulations = new HashSet<Node>(articulationPoints),
                 Bridges = new List<(Node From, Node To)>(bridges),
                 Blocks = blocks.Select(b => b.ToList()).ToList(),
+                TraversedEdgePairs = new List<(Node From, Node To)>(traversedEdgePairs),
                 Stack = new Stack<DFSFrame>(dfsStack.Reverse().Select(f =>
                     new DFSFrame
                     {
@@ -720,6 +723,7 @@ namespace ArticulationExplorer
 
             history.Add(state);
             historyIndex = history.Count - 1;
+
         }
 
         public void StartAlgorithm()
@@ -808,6 +812,7 @@ namespace ArticulationExplorer
                     frame.Children++;
 
                     edgeStack.Push((u, v));
+                    traversedEdgePairs.Add((u, v));
                     dfsStack.Push(new DFSFrame
                     {
                         Node = v,
@@ -824,6 +829,7 @@ namespace ArticulationExplorer
                 {
                     low[u] = Math.Min(low[u], disc[v]);
                     edgeStack.Push((u, v));
+                    traversedEdgePairs.Add((u, v));
                     SaveState($"Nestromová hrana {u.Name}{v.Name}, min[{u.Name}] = {low[u]}", u, v);
                     return;
                 }
@@ -933,11 +939,20 @@ namespace ArticulationExplorer
             articulationPoints = new HashSet<Node>(state.Articulations);
             bridges = new List<(Node From, Node To)>(state.Bridges);
             blocks = state.Blocks.Select(b => b.ToList()).ToList();
+            traversedEdgePairs = new List<(Node From, Node To)>(state.TraversedEdgePairs);
             dfsStack = new Stack<DFSFrame>(state.Stack.Reverse());
             edgeStack = new Stack<(Node From, Node To)>(state.EdgeStack.Reverse());
 
             RedrawGraph();
             UpdateInfoPanel(state);
+
+            if (showingMatrix)
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    StyleMatrixCells();
+                }), System.Windows.Threading.DispatcherPriority.Loaded);
+            }
         }
         public void StepBackward()
         {
@@ -1083,6 +1098,7 @@ namespace ArticulationExplorer
             articulationPoints.Clear();
             bridges.Clear();
             blocks.Clear();
+            traversedEdgePairs.Clear();
 
             history.Clear();
             historyIndex = -1;
@@ -1107,12 +1123,14 @@ namespace ArticulationExplorer
 
             isSteppingMode = false;
             UpdateControls();
+            RefreshMatrixView();
         }
 
         //tlacitka na krokovani
         private void StartAlgorithm_Click(object sender, RoutedEventArgs e)
         {
             StartAlgorithm();
+            Focus();
             if (historyIndex >= 0)
             {
                 LoadState(history[historyIndex]);
@@ -1137,14 +1155,20 @@ namespace ArticulationExplorer
         //enable/disable tlacitek
         private void UpdateControls()
         {
+            bool hasSavedNextStep = historyIndex < history.Count - 1;
+            bool algorithmStillRunning = dfsStack.Count > 0;
+
             StepBackButton.IsEnabled = isSteppingMode && historyIndex > 0;
-            StepForwardButton.IsEnabled = isSteppingMode;
+            StepForwardButton.IsEnabled = isSteppingMode && (hasSavedNextStep || algorithmStillRunning);
             ResetAlgorithmButton.IsEnabled = isSteppingMode;
             StartAlgorithmButton.IsEnabled = !isSteppingMode && nodes.Count > 0;
             AnalyzeGraphButton.IsEnabled = !isSteppingMode;
             ClearGraphButton.IsEnabled = !isSteppingMode;
-
             GraphCanvas.Cursor = isSteppingMode ? Cursors.No : Cursors.Arrow;
+            MatrixGrid.IsReadOnly = true;
+            MatrixGrid.IsHitTestVisible = !isSteppingMode;
+            AddNodeFromMatrixButton.IsEnabled = !isSteppingMode;
+            RemoveNodeFromMatrixButton.IsEnabled = !isSteppingMode;
         }
 
         //formatovani mostu
@@ -1253,6 +1277,11 @@ namespace ArticulationExplorer
             }
 
             MatrixGrid.ItemsSource = table.DefaultView;
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                StyleMatrixCells();
+            }), System.Windows.Threading.DispatcherPriority.Loaded);
         }
 
         //edit matice
@@ -1408,6 +1437,108 @@ namespace ArticulationExplorer
 
                 UpdateEdges(node);
             }
+        }
+
+        //nabindovani sipek
+        private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (!isSteppingMode)
+                return;
+
+            if (e.Key == Key.Left)
+            {
+                StepBackward();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Right)
+            {
+                StepForward();
+                e.Handled = true;
+            }
+        }
+
+        //sktani hran v matici
+
+        private void StyleMatrixCells()
+        {
+            MatrixGrid.UpdateLayout();
+
+            var orderedNodes = nodes
+                .OrderBy(n => n.Name, StringComparer.Ordinal)
+                .ToList();
+
+            for (int rowIndex = 0; rowIndex < orderedNodes.Count; rowIndex++)
+            {
+                DataGridRow? row = MatrixGrid.ItemContainerGenerator
+                    .ContainerFromIndex(rowIndex) as DataGridRow;
+
+                if (row == null)
+                    continue;
+
+                for (int colIndex = 1; colIndex < MatrixGrid.Columns.Count; colIndex++)
+                {
+                    DataGridCell? cell = GetCell(row, colIndex);
+
+                    if (cell == null)
+                        continue;
+
+                    TextBlock? textBlock = cell.Content as TextBlock;
+
+                    if (textBlock == null)
+                        continue;
+
+                    Node rowNode = orderedNodes[rowIndex];
+                    Node colNode = orderedNodes[colIndex - 1];
+
+                    // reset
+                    textBlock.TextDecorations = null;
+                    textBlock.FontWeight = textBlock.Text == "1"
+                        ? FontWeights.Bold
+                        : FontWeights.Normal;
+
+                    // prošlá hrana = přeškrtnout
+                    if (IsTraversedEdge(rowNode, colNode))
+                    {
+                        textBlock.TextDecorations = TextDecorations.Strikethrough;
+                    }
+                }
+            }
+        }
+        private bool IsTraversedEdge(Node a, Node b)
+        {
+            return traversedEdgePairs.Any(e =>
+                (e.From == a && e.To == b) ||
+                (e.From == b && e.To == a));
+        }
+        private DataGridCell? GetCell(DataGridRow row, int columnIndex)
+        {
+            DataGridCellsPresenter? presenter = FindVisualChild<DataGridCellsPresenter>(row);
+
+            if (presenter == null)
+            {
+                row.ApplyTemplate();
+                presenter = FindVisualChild<DataGridCellsPresenter>(row);
+            }
+
+            return presenter?.ItemContainerGenerator
+                .ContainerFromIndex(columnIndex) as DataGridCell;
+        }
+        private T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+        {
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                DependencyObject child = VisualTreeHelper.GetChild(parent, i);
+
+                if (child is T typedChild)
+                    return typedChild;
+
+                T? childOfChild = FindVisualChild<T>(child);
+
+                if (childOfChild != null)
+                    return childOfChild;
+            }
+
+            return null;
         }
     }
 }
