@@ -60,6 +60,10 @@ namespace ArticulationExplorer
         //prepina grafu a matice
         private bool showingMatrix = false;
 
+        //preskrtnuti lifo vrcholu a hran
+        private List<StackHistoryItem<Node>> dfsHistory = new();
+        private List<StackHistoryItem<(Node From, Node To)>> edgeHistory = new();
+
         //pridani vrcholu
         private void GraphCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
@@ -480,7 +484,6 @@ namespace ArticulationExplorer
                     v.Parent = u;
 
                     edgeStack.Push((u, v));
-
                     DFSAnalyze(v);
 
                     u.Low = Math.Min(u.Low, v.Low);
@@ -688,8 +691,6 @@ namespace ArticulationExplorer
             ClearGraph();
         }
 
-
-
         //krokovani
         private void SaveState(string description, Node? current = null, Node? neighbor = null)
         {
@@ -716,6 +717,18 @@ namespace ArticulationExplorer
                         Children = f.Children
                     })),
                 EdgeStack = new Stack<(Node From, Node To)>(edgeStack.Reverse()),
+                DfsHistory = dfsHistory
+                    .Select(x => new StackHistoryItem<Node>
+                    {
+                        Item = x.Item,
+                        IsRemoved = x.IsRemoved
+                    }).ToList(),
+                EdgeHistory = edgeHistory
+                    .Select(x => new StackHistoryItem<(Node From, Node To)>
+                    {
+                        Item = x.Item,
+                        IsRemoved = x.IsRemoved
+                    }).ToList(),
                 CurrentNode = current,
                 CurrentNeighbor = neighbor,
                 Description = description
@@ -753,6 +766,12 @@ namespace ArticulationExplorer
                 Parent = null,
                 NeighborIndex = 0,
                 Children = 0
+            });
+
+            dfsHistory.Add(new StackHistoryItem<Node>
+            {
+                Item = start,
+                IsRemoved = false
             });
 
             isSteppingMode = true;
@@ -812,6 +831,13 @@ namespace ArticulationExplorer
                     frame.Children++;
 
                     edgeStack.Push((u, v));
+
+                    edgeHistory.Add(new StackHistoryItem<(Node From, Node To)>
+                    {
+                        Item = (u, v),
+                        IsRemoved = false
+                    });
+
                     traversedEdgePairs.Add((u, v));
                     dfsStack.Push(new DFSFrame
                     {
@@ -820,6 +846,13 @@ namespace ArticulationExplorer
                         NeighborIndex = 0,
                         Children = 0
                     });
+
+                    dfsHistory.Add(new StackHistoryItem<Node>
+                    {
+                        Item = v,
+                        IsRemoved = false
+                    });
+
                     SaveState($"Jdeme z {u.Name} do {v.Name}", u, v);
                     return;
                 }
@@ -829,6 +862,13 @@ namespace ArticulationExplorer
                 {
                     low[u] = Math.Min(low[u], disc[v]);
                     edgeStack.Push((u, v));
+
+                    edgeHistory.Add(new StackHistoryItem<(Node From, Node To)>
+                    {
+                        Item = (u, v),
+                        IsRemoved = false
+                    });
+
                     traversedEdgePairs.Add((u, v));
                     SaveState($"Nestromová hrana {u.Name}{v.Name}, min[{u.Name}] = {low[u]}", u, v);
                     return;
@@ -838,6 +878,15 @@ namespace ArticulationExplorer
 
             //navrat z vrcholu, jsme v nejnizsi vrstve
             dfsStack.Pop();
+
+            for (int i = dfsHistory.Count - 1; i >= 0; i--)
+            {
+                if (dfsHistory[i].Item == u && !dfsHistory[i].IsRemoved)
+                {
+                    dfsHistory[i].IsRemoved = true;
+                    break;
+                }
+            }
 
             if (frame.Parent != null)
             {
@@ -942,6 +991,19 @@ namespace ArticulationExplorer
             traversedEdgePairs = new List<(Node From, Node To)>(state.TraversedEdgePairs);
             dfsStack = new Stack<DFSFrame>(state.Stack.Reverse());
             edgeStack = new Stack<(Node From, Node To)>(state.EdgeStack.Reverse());
+            dfsHistory = state.DfsHistory
+                .Select(x => new StackHistoryItem<Node>
+                {
+                    Item = x.Item,
+                    IsRemoved = x.IsRemoved
+                }).ToList();
+
+            edgeHistory = state.EdgeHistory
+                .Select(x => new StackHistoryItem<(Node From, Node To)>
+                {
+                    Item = x.Item,
+                    IsRemoved = x.IsRemoved
+                }).ToList();
 
             RedrawGraph();
             UpdateInfoPanel(state);
@@ -965,18 +1027,49 @@ namespace ArticulationExplorer
         }
         private void UpdateInfoPanel(AlgorithmState state)
         {
-            string stackText = "";
-            if (state.Stack.Count != 0)
-            stackText = string.Join("\n", state.Stack
-                .Reverse()
-                .Select(f => f.Node)
-                .Distinct()
-                .Select(n =>
-                {
-                    int d = state.Disc.ContainsKey(n!) ? state.Disc[n!] : 0;
-                    int l = state.Low.ContainsKey(n!) ? state.Low[n!] : 0;
-                    return $"{n!.Name}({d}, {l})";
-                }));
+            InfoText.Inlines.Clear();
+
+            InfoText.Inlines.Add(new Run($"Krok {historyIndex}\n"));
+            InfoText.Inlines.Add(new Run($"Popis:\n{state.Description}\n\n"));
+
+            InfoText.Inlines.Add(new Run("LIFO:\n"));
+
+            for (int i = 0; i < state.DfsHistory.Count; i++)
+            {
+                var item = state.DfsHistory[i];
+                Node? node = item.Item;
+
+                int d = state.Disc.ContainsKey(node!) ? state.Disc[node!] : 0;
+                int l = state.Low.ContainsKey(node!) ? state.Low[node!] : 0;
+
+                Run run = new Run($"{node!.Name}({d},{l})");
+
+                if (item.IsRemoved)
+                    run.TextDecorations = TextDecorations.Strikethrough;
+
+                InfoText.Inlines.Add(run);
+
+                if (i < state.DfsHistory.Count - 1)
+                    InfoText.Inlines.Add(new Run(", "));
+            }
+
+            InfoText.Inlines.Add(new Run("\n\nHrany:\n"));
+
+            for (int i = 0; i < state.EdgeHistory.Count; i++)
+            {
+                var item = state.EdgeHistory[i];
+                var edge = item.Item;
+
+                Run run = new Run($"{FormatEdge(edge.From, edge.To)}");
+
+                if (item.IsRemoved)
+                    run.TextDecorations = TextDecorations.Strikethrough;
+
+                InfoText.Inlines.Add(run);
+
+                if (i < state.EdgeHistory.Count - 1)
+                    InfoText.Inlines.Add(new Run(", "));
+            }
 
             string articulationsText = string.Join(", ", state.Articulations
                 .OrderBy(n => n.Name, StringComparer.Ordinal)
@@ -988,25 +1081,21 @@ namespace ArticulationExplorer
                 .Select(b => FormatBridge(b.From, b.To)));
 
             var lines = new List<string>();
+
             for (int i = 0; i < state.Blocks.Count; i++)
             {
-                lines.Add($"B{i + 1}: {string.Join(", ", state.Blocks[i].Select(n => FormatEdge(n.From, n.To)).Reverse())}");
+                lines.Add(
+                    $"B{i + 1}: {string.Join(", ",
+                        state.Blocks[i]
+                            .Select(e => FormatEdge(e.From, e.To))
+                            .Reverse())}");
             }
+
             string blocksText = string.Join("\n", lines);
 
-            string edgeStackText = string.Join(", ", state.EdgeStack
-                .Reverse()
-                .Select(e => FormatEdge(e.From,e.To)));
-
-
-            InfoText.Text =
-                $"Krok {historyIndex}\n" +
-                $"Popis:\n{state.Description}\n\n" +
-                $"\n\nLIFO:\n{stackText}" +
-                $"\n\nHrany:\n{edgeStackText}" +
-                $"\n\nArtikulace:\n{articulationsText}" +
-                $"\n\nMosty:\n{bridgesText}" +
-                $"\n\nBloky:\n{blocksText}";
+            InfoText.Inlines.Add(new Run($"\n\nArtikulace:\n{articulationsText}"));
+            InfoText.Inlines.Add(new Run($"\n\nMosty:\n{bridgesText}"));
+            InfoText.Inlines.Add(new Run($"\n\nBloky:\n{blocksText}"));
         }
         private void RedrawGraph()
         {
@@ -1190,6 +1279,22 @@ namespace ArticulationExplorer
             while (edgeStack.Count > 0)
             {
                 var edge = edgeStack.Pop();
+
+                for (int i = edgeHistory.Count - 1; i >= 0; i--)
+                {
+                    var h = edgeHistory[i].Item;
+
+                    bool same =
+                        (h.From == edge.From && h.To == edge.To) ||
+                        (h.From == edge.To && h.To == edge.From);
+
+                    if (same && !edgeHistory[i].IsRemoved)
+                    {
+                        edgeHistory[i].IsRemoved = true;
+                        break;
+                    }
+                }
+
                 blockEdges.Add(edge);
 
                 if ((edge.From == u && edge.To == v) ||

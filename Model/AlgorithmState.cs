@@ -16,6 +16,8 @@ namespace ArticulationExplorer.Model
         public Stack<DFSFrame> Stack { get; set; } = new();
         public Stack<(Node From, Node To)> EdgeStack { get; set; } = new();
         public List<(Node From, Node To)> TraversedEdgePairs { get; set; } = new();
+        public List<StackHistoryItem<Node>> DfsHistory { get; set; } = new();
+        public List<StackHistoryItem<(Node From, Node To)>> EdgeHistory { get; set; } = new();
 
         public Node? CurrentNode { get; set; }
         public Node? CurrentNeighbor { get; set; }
