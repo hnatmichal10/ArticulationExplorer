@@ -1,6 +1,7 @@
 ﻿using ArticulationExplorer.Model;
 using System.Data;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -692,7 +693,7 @@ namespace ArticulationExplorer
         }
 
         //krokovani
-        private void SaveState(string description, Node? current = null, Node? neighbor = null)
+        private void SaveState(string description, Node? current = null, Node? neighbor = null, IEnumerable<Node>? highlightedNodes = null, IEnumerable<(Node From, Node To)>? highlightedEdges = null)
         {
             //uprava historie, kvuli krokovani zpet
             if (historyIndex < history.Count - 1)
@@ -729,6 +730,13 @@ namespace ArticulationExplorer
                         Item = x.Item,
                         IsRemoved = x.IsRemoved
                     }).ToList(),
+                HighlightedNodes = highlightedNodes != null
+                    ? new HashSet<Node>(highlightedNodes)
+                    : new HashSet<Node>(),
+
+                HighlightedEdges = highlightedEdges != null
+                    ? highlightedEdges.ToList()
+                    : new List<(Node From, Node To)>(),
                 CurrentNode = current,
                 CurrentNeighbor = neighbor,
                 Description = description
@@ -813,7 +821,7 @@ namespace ArticulationExplorer
             if (!disc.ContainsKey(u!))
             {
                 disc[u!] = low[u!] = ++dfsTime;
-                SaveState($"Navštíven vrchol {u!.Name}, por=min={dfsTime}", u);
+                SaveState($"Navštíven vrchol {u!.Name}, por=min={dfsTime}", u, highlightedNodes: [u]);
                 return;
             }
 
@@ -853,7 +861,7 @@ namespace ArticulationExplorer
                         IsRemoved = false
                     });
 
-                    SaveState($"Jdeme z {u.Name} do {v.Name}", u, v);
+                    SaveState($"Jdeme z {u.Name} do {v.Name}", u, v, highlightedNodes: [u, v], highlightedEdges: [(u, v)]);
                     return;
                 }
 
@@ -870,7 +878,7 @@ namespace ArticulationExplorer
                     });
 
                     traversedEdgePairs.Add((u, v));
-                    SaveState($"Nestromová hrana {u.Name}{v.Name}, min[{u.Name}] = {low[u]}", u, v);
+                    SaveState($"Nestromová hrana {u.Name}{v.Name}, min[{u.Name}] = {low[u]}", u, v, highlightedNodes: [u, v], highlightedEdges: [(u, v)]);
                     return;
                 }
 
@@ -921,22 +929,28 @@ namespace ArticulationExplorer
                         articulationPoints.Add(p);
                     }
 
+                    string description;
                     if (isBridge)
                     {
                         string blockText = string.Join(", ", extractedBlock.Select(n => FormatEdge(n.From,n.To)));
 
+                        var highlightedEdges = new List<(Node From, Node To)> { (p, u) };
+                        highlightedEdges.AddRange(extractedBlock);
+
                         if (isArticulation)
                         {
-                            SaveState($"Most: {FormatBridge(p, u)}, protože min[{u.Name}]={low[u]} > por[{p.Name}]={disc[p]}" +
-                                $"\nartikulace: {p.Name} a blok: {blockText}, protože min[{u.Name}]={low[u]} >= por[{p.Name}]={disc[p]}",
-                                p, u);
+                            //most,blok a artikulace
+                            description = $"Most: {FormatBridge(p, u)}, protože min[{u.Name}]={low[u]} > por[{p.Name}]={disc[p]}" +
+                                $"\nartikulace: {p.Name} a blok: {blockText}, protože min[{u.Name}]={low[u]} >= por[{p.Name}]={disc[p]}";
                         }
                         else
                         {
-                            SaveState($"Most: {FormatBridge(p, u)}, protože min[{u.Name}]={low[u]} > por[{p.Name}]={disc[p]}" +
-                                $"\nblok: {blockText}, protože min[{u.Name}]={low[u]} >= por[{p.Name}]={disc[p]}",
-                                p, u);
+                            //most a blok
+                            description = $"Most: {FormatBridge(p, u)}, protože min[{u.Name}]={low[u]} > por[{p.Name}]={disc[p]}" +
+                                $"\nblok: {blockText}, protože min[{u.Name}]={low[u]} >= por[{p.Name}]={disc[p]}";
                         }
+
+                        SaveState(description, p, u, highlightedNodes: [p, u], highlightedEdges: highlightedEdges);
 
                         return;
                     }
@@ -947,24 +961,32 @@ namespace ArticulationExplorer
 
                         if (isArticulation)
                         {
-                            SaveState($"Artikulace: {p.Name} a blok: {blockText}, protože min[{u.Name}]={low[u]} >= por[{p.Name}]={disc[p]}", p, u);
+                            //artikulace a blok
+                            description = $"Artikulace: {p.Name} a blok: {blockText}, protože min[{u.Name}]={low[u]} >= por[{p.Name}]={disc[p]}"; 
                         }
                         else
                         {
-                            SaveState($"Blok: {blockText} uzavřen", p, u);
+                            //blok
+                            description = $"Blok: {blockText} uzavřen";
                         }
+
+                        SaveState(description, p, u, highlightedNodes: [p, u], highlightedEdges: extractedBlock);
 
                         return;
                     }
-
+                    
                     if (oldLowP > low[u])
                     {
-                        SaveState($"Návrat z {u.Name} do {p.Name}, min[{p.Name}] se mění na {low[p]}, protože min[{p.Name}]={oldLowP} > min[{u.Name}]={low[u]}", p, u);
+                        //nic a meni se
+                        description = $"Návrat z {u.Name} do {p.Name}, min[{p.Name}] se mění na {low[p]}, protože min[{p.Name}]={oldLowP} > min[{u.Name}]={low[u]}"; 
                     }
                     else
                     {
-                        SaveState($"Návrat z {u.Name} do {p.Name}", p, u);
+                        //nic a nemeni se
+                        description = $"Návrat z {u.Name} do {p.Name}";
                     }
+
+                    SaveState(description, p, u, highlightedNodes: [p, u]);
                 }
 
                 return;
@@ -973,12 +995,14 @@ namespace ArticulationExplorer
             //je koren artikulace?
             if (frame.Children > 1)
             {
+                //je
                 articulationPoints.Add(u);
-                SaveState($"Kořen: {u.Name} je artikulace, protože má více než jednoho přímého následníka", u);
+                SaveState($"Kořen: {u.Name} je artikulace, protože má více než jednoho přímého následníka", u, highlightedNodes: [u]);
             }
             else
             {
-                SaveState($"Algoritmus dokončen pro kořen {u.Name}", u);
+                //neni
+                SaveState($"Algoritmus dokončen pro kořen {u.Name}", u, highlightedNodes: [u]);
             }
         }
         private void LoadState(AlgorithmState state)
@@ -1029,8 +1053,31 @@ namespace ArticulationExplorer
         {
             InfoText.Inlines.Clear();
 
+            Dictionary<Node, Brush> nodeColors = new();
+            Dictionary<string, Brush> edgeColors = new();
+
+            int colorIndex = 0;
+
+            foreach (var node in state.HighlightedNodes.OrderBy(n => n.Name, StringComparer.Ordinal))
+            {
+                nodeColors[node] = GetColorByIndex(colorIndex++);
+            }
+
+            foreach (var edge in state.HighlightedEdges)
+            {
+                string key = FormatBridge(edge.From, edge.To);
+
+                if (!edgeColors.ContainsKey(key))
+                {
+                    edgeColors[key] = GetColorByIndex(colorIndex++);
+                }
+            }
+
             InfoText.Inlines.Add(new Run($"Krok {historyIndex}\n"));
-            InfoText.Inlines.Add(new Run($"Popis:\n{state.Description}\n\n"));
+            InfoText.Inlines.Add(new Run("Popis:\n"));
+            AddHighlightedDescription(state.Description!, nodeColors, edgeColors);
+
+            InfoText.Inlines.Add(new Run("\n\n"));
 
             InfoText.Inlines.Add(new Run("LIFO:\n"));
 
@@ -1039,10 +1086,7 @@ namespace ArticulationExplorer
                 var item = state.DfsHistory[i];
                 Node? node = item.Item;
 
-                int d = state.Disc.ContainsKey(node!) ? state.Disc[node!] : 0;
-                int l = state.Low.ContainsKey(node!) ? state.Low[node!] : 0;
-
-                Run run = new Run($"{node!.Name}({d},{l})");
+                Run run = MakeNodeRun(node!, state, nodeColors);
 
                 if (item.IsRemoved)
                     run.TextDecorations = TextDecorations.Strikethrough;
@@ -1060,7 +1104,7 @@ namespace ArticulationExplorer
                 var item = state.EdgeHistory[i];
                 var edge = item.Item;
 
-                Run run = new Run($"{FormatEdge(edge.From, edge.To)}");
+                Run run = MakeEdgeRun(edge.From, edge.To, edgeColors);
 
                 if (item.IsRemoved)
                     run.TextDecorations = TextDecorations.Strikethrough;
@@ -1071,31 +1115,57 @@ namespace ArticulationExplorer
                     InfoText.Inlines.Add(new Run(", "));
             }
 
-            string articulationsText = string.Join(", ", state.Articulations
-                .OrderBy(n => n.Name, StringComparer.Ordinal)
-                .Select(n => n.Name));
+            InfoText.Inlines.Add(new Run("\n\nArtikulace:\n"));
 
-            string bridgesText = string.Join(", ", state.Bridges
+            var articulationList = state.Articulations
+                .OrderBy(n => n.Name, StringComparer.Ordinal)
+                .ToList();
+
+            for (int i = 0; i < articulationList.Count; i++)
+            {
+                InfoText.Inlines.Add(
+                    MakeNodeNameRun(articulationList[i], nodeColors));
+
+                if (i < articulationList.Count - 1)
+                    InfoText.Inlines.Add(new Run(", "));
+            }
+
+            InfoText.Inlines.Add(new Run("\n\nMosty:\n"));
+
+            var bridgeList = state.Bridges
                 .OrderBy(b => b.From.Name, StringComparer.Ordinal)
                 .ThenBy(b => b.To.Name, StringComparer.Ordinal)
-                .Select(b => FormatBridge(b.From, b.To)));
+                .ToList();
 
-            var lines = new List<string>();
+            for (int i = 0; i < bridgeList.Count; i++)
+            {
+                InfoText.Inlines.Add(MakeEdgeRun(bridgeList[i].From, bridgeList[i].To, edgeColors));
+
+                if (i < bridgeList.Count - 1)
+                    InfoText.Inlines.Add(new Run(", "));
+            }
+
+            InfoText.Inlines.Add(new Run("\n\nBloky:\n"));
 
             for (int i = 0; i < state.Blocks.Count; i++)
             {
-                lines.Add(
-                    $"B{i + 1}: {string.Join(", ",
-                        state.Blocks[i]
-                            .Select(e => FormatEdge(e.From, e.To))
-                            .Reverse())}");
+                InfoText.Inlines.Add(new Run($"B{i + 1}: "));
+
+                var block = state.Blocks[i];
+
+                for (int j = block.Count - 1; j >= 0; j--)
+                {
+                    var edge = block[j];
+
+                    InfoText.Inlines.Add(MakeEdgeRun(edge.From, edge.To, edgeColors));
+
+                    if (j > 0)
+                        InfoText.Inlines.Add(new Run(", "));
+                }
+
+                if (i < state.Blocks.Count - 1)
+                    InfoText.Inlines.Add(new Run("\n"));
             }
-
-            string blocksText = string.Join("\n", lines);
-
-            InfoText.Inlines.Add(new Run($"\n\nArtikulace:\n{articulationsText}"));
-            InfoText.Inlines.Add(new Run($"\n\nMosty:\n{bridgesText}"));
-            InfoText.Inlines.Add(new Run($"\n\nBloky:\n{blocksText}"));
         }
         private void RedrawGraph()
         {
@@ -1644,6 +1714,128 @@ namespace ArticulationExplorer
             }
 
             return null;
+        }
+
+        //zvyrazneni vrcholu a hran v lifu
+        private readonly Brush[] highlightBrushes =
+        {
+            Brushes.Red,
+            Brushes.Blue,
+            Brushes.Green,
+            Brushes.Orange,
+            Brushes.Purple,
+            Brushes.Brown,
+            Brushes.DarkCyan,
+            Brushes.DeepPink
+        };
+        private Brush GetColorByIndex(int index)
+        {
+            return highlightBrushes[index % highlightBrushes.Length];
+        }
+        private Run MakeNodeRun(Node node, AlgorithmState state, Dictionary<Node, Brush> nodeColors)
+        {
+            int d = state.Disc.ContainsKey(node) ? state.Disc[node] : 0;
+            int l = state.Low.ContainsKey(node) ? state.Low[node] : 0;
+
+            Run run = new Run($"{node.Name}({d}, {l})");
+
+            if (nodeColors.TryGetValue(node, out Brush? color))
+            {
+                run.Foreground = color;
+                run.FontWeight = FontWeights.Bold;
+            }
+
+            return run;
+        }
+        private Run MakeEdgeRun(Node from, Node to, Dictionary<string, Brush> edgeColors)
+        {
+            string edgeKey = FormatBridge(from, to);
+
+            Run run = new Run(FormatEdge(from, to));
+
+            if (edgeColors.TryGetValue(edgeKey, out Brush? color))
+            {
+                run.Foreground = color;
+                run.FontWeight = FontWeights.Bold;
+            }
+
+            return run;
+        }
+        private Run MakeNodeNameRun(Node node, Dictionary<Node, Brush> nodeColors)
+        {
+            Run run = new Run(node.Name);
+
+            if (nodeColors.TryGetValue(node, out Brush? color))
+            {
+                run.Foreground = color;
+                run.FontWeight = FontWeights.Bold;
+            }
+
+            return run;
+        }
+        private void AddHighlightedDescription(string text, Dictionary<Node, Brush> nodeColors, Dictionary<string, Brush> edgeColors)
+        {
+            int i = 0;
+
+            while (i < text.Length)
+            {
+                // hrany
+                var matchedEdge = edges
+                    .SelectMany(e => new[]
+                    {
+                        new { Text = FormatEdge(e.From, e.To), Key = FormatBridge(e.From, e.To) },
+                        new { Text = FormatEdge(e.To, e.From), Key = FormatBridge(e.From, e.To) }
+                    })
+                    .Where(x => edgeColors.ContainsKey(x.Key))
+                    .OrderByDescending(x => x.Text.Length)
+                    .FirstOrDefault(x =>
+                        i + x.Text.Length <= text.Length &&
+                        text.Substring(i, x.Text.Length) == x.Text);
+
+                if (matchedEdge != null)
+                {
+                    Run run = new Run(matchedEdge.Text)
+                    {
+                        Foreground = edgeColors[matchedEdge.Key],
+                        FontWeight = FontWeights.Bold
+                    };
+
+                    InfoText.Inlines.Add(run);
+                    i += matchedEdge.Text.Length;
+                    continue;
+                }
+
+                // vrcholy
+                var matchedNode = nodeColors.Keys
+                    .OrderByDescending(n => n.Name.Length)
+                    .FirstOrDefault(n =>
+                        i + n.Name.Length <= text.Length &&
+                        text.Substring(i, n.Name.Length) == n.Name &&
+                        IsWholeWord(text, i, n.Name.Length));
+
+                if (matchedNode != null)
+                {
+                    Run run = new Run(matchedNode.Name)
+                    {
+                        Foreground = nodeColors[matchedNode],
+                        FontWeight = FontWeights.Bold
+                    };
+
+                    InfoText.Inlines.Add(run);
+                    i += matchedNode.Name.Length;
+                    continue;
+                }
+
+                InfoText.Inlines.Add(new Run(text[i].ToString()));
+                i++;
+            }
+        }
+        private bool IsWholeWord(string text, int start, int length)
+        {
+            bool beforeOk = start == 0 || !char.IsLetterOrDigit(text[start - 1]);
+            bool afterOk = start + length >= text.Length || !char.IsLetterOrDigit(text[start + length]);
+
+            return beforeOk && afterOk;
         }
     }
 }

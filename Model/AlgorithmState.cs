@@ -18,6 +18,8 @@ namespace ArticulationExplorer.Model
         public List<(Node From, Node To)> TraversedEdgePairs { get; set; } = new();
         public List<StackHistoryItem<Node>> DfsHistory { get; set; } = new();
         public List<StackHistoryItem<(Node From, Node To)>> EdgeHistory { get; set; } = new();
+        public HashSet<Node> HighlightedNodes { get; set; } = new();
+        public List<(Node From, Node To)> HighlightedEdges { get; set; } = new();
 
         public Node? CurrentNode { get; set; }
         public Node? CurrentNeighbor { get; set; }
