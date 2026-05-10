@@ -821,7 +821,7 @@ namespace ArticulationExplorer
             if (!disc.ContainsKey(u!))
             {
                 disc[u!] = low[u!] = ++dfsTime;
-                SaveState($"Navštíven vrchol {u!.Name}, por=min={dfsTime}", u, highlightedNodes: [u]);
+                SaveState($"Navštíven vrchol {u!.Name}", u, highlightedNodes: [u]);
                 return;
             }
 
@@ -861,13 +861,14 @@ namespace ArticulationExplorer
                         IsRemoved = false
                     });
 
-                    SaveState($"Jdeme z {u.Name} do {v.Name}", u, v, highlightedNodes: [u, v], highlightedEdges: [(u, v)]);
+                    SaveState($"Jdeme z {u.Name} do {v.Name} pomocí hrany {FormatEdge(u,v)}", u, v, highlightedNodes: [u, v], highlightedEdges: [(u, v)]);
                     return;
                 }
 
                 //nestromova hrana
                 if (v != frame.Parent && disc[v] < disc[u])
                 {
+                    int oldLowU = low[u];
                     low[u] = Math.Min(low[u], disc[v]);
                     edgeStack.Push((u, v));
 
@@ -878,7 +879,8 @@ namespace ArticulationExplorer
                     });
 
                     traversedEdgePairs.Add((u, v));
-                    SaveState($"Nestromová hrana {u.Name}{v.Name}, min[{u.Name}] = {low[u]}", u, v, highlightedNodes: [u, v], highlightedEdges: [(u, v)]);
+                    SaveState($"Jdeme z {u.Name} do {v.Name} pomocí hrany {FormatEdge(u, v)}\n" +
+                        $"Je to hrana nestromová, takže změníme min[{u.Name}]={oldLowU} na por[{v.Name}]={disc[v]}", u, v, highlightedNodes: [u, v], highlightedEdges: [(u, v)]);
                     return;
                 }
 
@@ -904,89 +906,80 @@ namespace ArticulationExplorer
                 {
                     DFSFrame parentFrame = dfsStack.Peek();
 
+                    bool parentIsRoot = parentFrame.Parent == null;
                     int oldLowP = low[p];
                     low[p] = Math.Min(low[p], low[u]);
 
                     bool isBridge = low[u] > disc[p];
                     bool closesBlock = low[u] >= disc[p];
-                    bool isArticulation = parentFrame.Parent != null && low[u] >= disc[p];
+                    bool isArticulation = !parentIsRoot && low[u] >= disc[p];
 
                     List<(Node From, Node To)> extractedBlock = new();
-
-                    if (isBridge)
-                    {
-                        bridges.Add((p, u));
-                    }
 
                     if (closesBlock)
                     {
                         extractedBlock = ExtractBlockUntilEdge(p, u);
-                        AddBlock(extractedBlock);
                     }
 
-                    if (isArticulation)
+                    string description = $"Návrat z {u.Name} do {p.Name}";
+
+                    string blockText = string.Join(", ", extractedBlock.Select(e => FormatEdge(e.From, e.To)));
+
+                    var highlightedEdges = new List<(Node From, Node To)>();
+
+                    //artikulace
+                    if (parentIsRoot)
+                    {
+                        description += $"\n{p.Name} je kořen, takže se vyhodnocuje zda je artikulace až na konci podle počtu přímých následníků";
+                    }
+                    else if (isArticulation)
                     {
                         articulationPoints.Add(p);
-                    }
 
-                    string description;
-                    if (isBridge)
-                    {
-                        string blockText = string.Join(", ", extractedBlock.Select(n => FormatEdge(n.From,n.To)));
-
-                        var highlightedEdges = new List<(Node From, Node To)> { (p, u) };
-                        highlightedEdges.AddRange(extractedBlock);
-
-                        if (isArticulation)
-                        {
-                            //most,blok a artikulace
-                            description = $"Most: {FormatBridge(p, u)}, protože min[{u.Name}]={low[u]} > por[{p.Name}]={disc[p]}" +
-                                $"\nartikulace: {p.Name} a blok: {blockText}, protože min[{u.Name}]={low[u]} >= por[{p.Name}]={disc[p]}";
-                        }
-                        else
-                        {
-                            //most a blok
-                            description = $"Most: {FormatBridge(p, u)}, protože min[{u.Name}]={low[u]} > por[{p.Name}]={disc[p]}" +
-                                $"\nblok: {blockText}, protože min[{u.Name}]={low[u]} >= por[{p.Name}]={disc[p]}";
-                        }
-
-                        SaveState(description, p, u, highlightedNodes: [p, u], highlightedEdges: highlightedEdges);
-
-                        return;
-                    }
-
-                    if (closesBlock)
-                    {
-                        string blockText = string.Join(", ", extractedBlock.Select(n => FormatEdge(n.From, n.To)));
-
-                        if (isArticulation)
-                        {
-                            //artikulace a blok
-                            description = $"Artikulace: {p.Name} a blok: {blockText}, protože min[{u.Name}]={low[u]} >= por[{p.Name}]={disc[p]}"; 
-                        }
-                        else
-                        {
-                            //blok
-                            description = $"Blok: {blockText} uzavřen";
-                        }
-
-                        SaveState(description, p, u, highlightedNodes: [p, u], highlightedEdges: extractedBlock);
-
-                        return;
-                    }
-                    
-                    if (oldLowP > low[u])
-                    {
-                        //nic a meni se
-                        description = $"Návrat z {u.Name} do {p.Name}, min[{p.Name}] se mění na {low[p]}, protože min[{p.Name}]={oldLowP} > min[{u.Name}]={low[u]}"; 
+                        description += $"\nNalezena artikulace {p.Name}, protože min[{u.Name}]={low[u]} >= por[{p.Name}]={disc[p]}";
                     }
                     else
                     {
-                        //nic a nemeni se
-                        description = $"Návrat z {u.Name} do {p.Name}";
+                        description += $"\n{p.Name} není artikulace, protože min[{u.Name}]={low[u]} < por[{p.Name}]={disc[p]}";
                     }
 
-                    SaveState(description, p, u, highlightedNodes: [p, u]);
+                    //most
+                    if (isBridge)
+                    {
+                        bridges.Add((p, u));
+                        highlightedEdges.Add((p, u));
+
+                        description += $"\nNalezen most {FormatBridge(p, u)}, protože min[{u.Name}]={low[u]} > por[{p.Name}]={disc[p]}";
+                    }
+                    else
+                    {
+                        description += $"\n{FormatBridge(p, u)} není most, protože min[{u.Name}]={low[u]} <= por[{p.Name}]={disc[p]}";
+                    }
+
+                    //blok
+                    if (closesBlock)
+                    {
+                        AddBlock(extractedBlock);
+                        highlightedEdges.AddRange(extractedBlock);
+
+                        description += $"\nBlok: {blockText} uzavřen, protože min[{u.Name}]={low[u]} >= por[{p.Name}]={disc[p]}";
+                    }
+                    else
+                    {
+                        description += $"\nBlok se neuzavírá, protože min[{u.Name}]={low[u]} < por[{p.Name}]={disc[p]}";
+                    }
+
+                    //změna min
+                    if (oldLowP > low[u])
+                    {
+                        description += $"\nmin[{p.Name}] se mění z {oldLowP} na {low[p]}, protože min[{u.Name}]={low[u]} je menší";
+                    }
+                    else
+                    {
+                        description += $"\nmin[{p.Name}]={oldLowP} se nemění, protože min[{u.Name}]={low[u]} není menší";
+                    }
+
+                    SaveState(description, p, u, highlightedNodes: [p, u], highlightedEdges: highlightedEdges);
                 }
 
                 return;
@@ -997,12 +990,12 @@ namespace ArticulationExplorer
             {
                 //je
                 articulationPoints.Add(u);
-                SaveState($"Kořen: {u.Name} je artikulace, protože má více než jednoho přímého následníka", u, highlightedNodes: [u]);
+                SaveState($"Kořen {u.Name} je artikulace, protože má více než jednoho přímého následníka", u, highlightedNodes: [u]);
             }
             else
             {
                 //neni
-                SaveState($"Algoritmus dokončen pro kořen {u.Name}", u, highlightedNodes: [u]);
+                SaveState($"Kořen {u.Name} není artikulace, protože má pouze jednoho přímého následníka", u, highlightedNodes: [u]);
             }
         }
         private void LoadState(AlgorithmState state)

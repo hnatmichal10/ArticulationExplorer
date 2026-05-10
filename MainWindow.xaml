@@ -156,7 +156,7 @@
 
             <Border Grid.Column="1"
                     MinWidth="180"
-                    MaxWidth="350"
+                    MaxWidth="360"
                     Background="#F0F0F0"
                     BorderBrush="#D0D0D0"
                     BorderThickness="1">
