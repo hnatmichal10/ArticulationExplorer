@@ -759,6 +759,8 @@ namespace ArticulationExplorer
             blocks.Clear();
             dfsStack.Clear();
             edgeStack.Clear();
+            dfsHistory.Clear();
+            edgeHistory.Clear();
 
             history.Clear();
             historyIndex = -1;
@@ -925,7 +927,10 @@ namespace ArticulationExplorer
 
                     string blockText = string.Join(", ", extractedBlock.Select(e => FormatEdge(e.From, e.To)));
 
-                    var highlightedEdges = new List<(Node From, Node To)>();
+                    var highlightedEdges = new List<(Node From, Node To)>
+                    {
+                        (p, u)
+                    };
 
                     //artikulace
                     if (parentIsRoot)
@@ -947,7 +952,6 @@ namespace ArticulationExplorer
                     if (isBridge)
                     {
                         bridges.Add((p, u));
-                        highlightedEdges.Add((p, u));
 
                         description += $"\nNalezen most {FormatBridge(p, u)}, protože min[{u.Name}]={low[u]} > por[{p.Name}]={disc[p]}";
                     }
