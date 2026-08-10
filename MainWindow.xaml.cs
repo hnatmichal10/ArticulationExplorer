@@ -1,18 +1,12 @@
 ﻿using ArticulationExplorer.Model;
 using System.Data;
-using System.Text;
-using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
-using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
 using System.Windows.Shapes;
-using System.Xml.Linq;
 
 namespace ArticulationExplorer
 {
@@ -26,8 +20,6 @@ namespace ArticulationExplorer
 
             GraphCanvas.MouseLeftButtonDown += GraphCanvas_MouseLeftButtonDown;
         }
-        //id vrcholu
-        private int nodeCounter = 0;
 
         //vrcholy
         private List<Node> nodes = new();
@@ -123,7 +115,6 @@ namespace ArticulationExplorer
             //objekt
             Node node = new Node
             {
-                Id = nodeCounter,
                 Name = nodeName,
                 X = x,
                 Y = y,
@@ -223,6 +214,7 @@ namespace ArticulationExplorer
             };
             UpdateControls();
         }
+
         private void HandleNodeClick(Node node)
         {
             if (isSteppingMode)
@@ -393,7 +385,7 @@ namespace ArticulationExplorer
             {
                 RemoveEdge(edge);
             }
-            
+
             GraphCanvas.Children.Remove(node.Shape);
             GraphCanvas.Children.Remove(node.Label);
 
@@ -681,7 +673,6 @@ namespace ArticulationExplorer
             draggedNode = null;
 
             dfsTime = 0;
-            nodeCounter = 0;
             InfoText.Text = "";
             UpdateControls();
             RefreshMatrixView();
@@ -790,6 +781,7 @@ namespace ArticulationExplorer
 
             UpdateControls();
         }
+
         public void StepForward()
         {
             //nacitani z historie, kvuli krokovani zpet
@@ -863,7 +855,7 @@ namespace ArticulationExplorer
                         IsRemoved = false
                     });
 
-                    SaveState($"Jdeme z {u.Name} do {v.Name} pomocí hrany {FormatEdge(u,v)}", u, v, highlightedNodes: [u, v], highlightedEdges: [(u, v)]);
+                    SaveState($"Jdeme z {u.Name} do {v.Name} pomocí hrany {FormatEdge(u, v)}", u, v, highlightedNodes: [u, v], highlightedEdges: [(u, v)]);
                     return;
                 }
 
@@ -1002,6 +994,7 @@ namespace ArticulationExplorer
                 SaveState($"Kořen {u.Name} není artikulace, protože má pouze jednoho přímého následníka", u, highlightedNodes: [u]);
             }
         }
+
         private void LoadState(AlgorithmState state)
         {
             disc = state.Disc.ToDictionary(e => e.Key, e => e.Value);
@@ -1037,6 +1030,7 @@ namespace ArticulationExplorer
                 }), System.Windows.Threading.DispatcherPriority.Loaded);
             }
         }
+
         public void StepBackward()
         {
             if (historyIndex <= 0) return;
@@ -1046,6 +1040,7 @@ namespace ArticulationExplorer
 
             UpdateControls();
         }
+
         private void UpdateInfoPanel(AlgorithmState state)
         {
             InfoText.Inlines.Clear();
@@ -1164,6 +1159,7 @@ namespace ArticulationExplorer
                     InfoText.Inlines.Add(new Run("\n"));
             }
         }
+
         private void RedrawGraph()
         {
             //reset hran
@@ -1303,6 +1299,7 @@ namespace ArticulationExplorer
         {
             StepBackward();
         }
+
         private void ResetAlgorithm_Click(object sender, RoutedEventArgs e)
         {
             ResetAlgorithm();
@@ -1334,6 +1331,7 @@ namespace ArticulationExplorer
                 ? $"{a.Name}{b.Name}"
                 : $"{b.Name}{a.Name}";
         }
+
         private string FormatEdge(Node a, Node b)
         {
             return $"{a.Name}{b.Name}";
@@ -1379,7 +1377,7 @@ namespace ArticulationExplorer
             if (blockEdges.Count == 0)
                 return;
 
-            string key = string.Join(", ", blockEdges.Select(e =>FormatEdge(e.From,e.To)));
+            string key = string.Join(", ", blockEdges.Select(e => FormatEdge(e.From, e.To)));
 
             bool exists = blocks.Any(b =>
                 string.Join(", ", b
@@ -1503,12 +1501,14 @@ namespace ArticulationExplorer
 
             e.Handled = true;
         }
+
         private Edge? GetEdgeBetween(Node a, Node b)
         {
             return edges.FirstOrDefault(e =>
                 (e.From == a && e.To == b) ||
                 (e.From == b && e.To == a));
         }
+
         private T? FindParent<T>(DependencyObject child) where T : DependencyObject
         {
             while (child != null)
@@ -1521,6 +1521,7 @@ namespace ArticulationExplorer
 
             return null;
         }
+
         private void AddNodeFromMatrix_Click(object sender, RoutedEventArgs e)
         {
             if (isSteppingMode)
@@ -1530,6 +1531,7 @@ namespace ArticulationExplorer
             ArrangeNodesInCircle();
             RefreshMatrixView();
         }
+
         private void RemoveNodeFromMatrix_Click(object sender, RoutedEventArgs e)
         {
             if (isSteppingMode)
@@ -1546,6 +1548,7 @@ namespace ArticulationExplorer
             RemoveNode(node);
             RefreshMatrixView();
         }
+
         private Node? GetSelectedMatrixNode()
         {
             DataRowView? rowView = null;
@@ -1575,6 +1578,7 @@ namespace ArticulationExplorer
 
             return nodes.FirstOrDefault(n => n.Name == nodeName);
         }
+
         private void ArrangeNodesInCircle()
         {
             if (nodes.Count == 0)
@@ -1676,12 +1680,14 @@ namespace ArticulationExplorer
                 }
             }
         }
+
         private bool IsTraversedEdge(Node a, Node b)
         {
             return traversedEdgePairs.Any(e =>
                 (e.From == a && e.To == b) ||
                 (e.From == b && e.To == a));
         }
+
         private DataGridCell? GetCell(DataGridRow row, int columnIndex)
         {
             DataGridCellsPresenter? presenter = FindVisualChild<DataGridCellsPresenter>(row);
@@ -1695,6 +1701,7 @@ namespace ArticulationExplorer
             return presenter?.ItemContainerGenerator
                 .ContainerFromIndex(columnIndex) as DataGridCell;
         }
+
         private T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
         {
             for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
@@ -1725,10 +1732,12 @@ namespace ArticulationExplorer
             Brushes.DarkCyan,
             Brushes.DeepPink
         };
+
         private Brush GetColorByIndex(int index)
         {
             return highlightBrushes[index % highlightBrushes.Length];
         }
+
         private Run MakeNodeRun(Node node, AlgorithmState state, Dictionary<Node, Brush> nodeColors)
         {
             int d = state.Disc.ContainsKey(node) ? state.Disc[node] : 0;
@@ -1744,6 +1753,7 @@ namespace ArticulationExplorer
 
             return run;
         }
+
         private Run MakeEdgeRun(Node from, Node to, Dictionary<string, Brush> edgeColors)
         {
             string edgeKey = FormatBridge(from, to);
@@ -1758,6 +1768,7 @@ namespace ArticulationExplorer
 
             return run;
         }
+
         private Run MakeNodeNameRun(Node node, Dictionary<Node, Brush> nodeColors)
         {
             Run run = new Run(node.Name);
@@ -1770,24 +1781,34 @@ namespace ArticulationExplorer
 
             return run;
         }
+
         private void AddHighlightedDescription(string text, Dictionary<Node, Brush> nodeColors, Dictionary<string, Brush> edgeColors)
         {
             int i = 0;
 
             while (i < text.Length)
             {
-                // hrany
+                //nejprve hledame hrany
                 var matchedEdge = edges
                     .SelectMany(e => new[]
                     {
-                        new { Text = FormatEdge(e.From, e.To), Key = FormatBridge(e.From, e.To) },
-                        new { Text = FormatEdge(e.To, e.From), Key = FormatBridge(e.From, e.To) }
+                        new
+                        {
+                            Text = FormatEdge(e.From, e.To),
+                            Key = FormatBridge(e.From, e.To)
+                        },
+                        new
+                        {
+                            Text = FormatEdge(e.To, e.From),
+                            Key = FormatBridge(e.From, e.To)
+                        }
                     })
                     .Where(x => edgeColors.ContainsKey(x.Key))
                     .OrderByDescending(x => x.Text.Length)
                     .FirstOrDefault(x =>
                         i + x.Text.Length <= text.Length &&
-                        text.Substring(i, x.Text.Length) == x.Text);
+                        text.Substring(i, x.Text.Length) == x.Text &&
+                        IsWholeEdge(text, i, x.Text.Length));
 
                 if (matchedEdge != null)
                 {
@@ -1798,11 +1819,12 @@ namespace ArticulationExplorer
                     };
 
                     InfoText.Inlines.Add(run);
+
                     i += matchedEdge.Text.Length;
                     continue;
                 }
 
-                // vrcholy
+                //potom hledame vrcholy
                 var matchedNode = nodeColors.Keys
                     .OrderByDescending(n => n.Name.Length)
                     .FirstOrDefault(n =>
@@ -1819,18 +1841,34 @@ namespace ArticulationExplorer
                     };
 
                     InfoText.Inlines.Add(run);
+
                     i += matchedNode.Name.Length;
                     continue;
                 }
 
+                //obycejny text
                 InfoText.Inlines.Add(new Run(text[i].ToString()));
                 i++;
             }
         }
+
         private bool IsWholeWord(string text, int start, int length)
         {
             bool beforeOk = start == 0 || !char.IsLetterOrDigit(text[start - 1]);
             bool afterOk = start + length >= text.Length || !char.IsLetterOrDigit(text[start + length]);
+
+            return beforeOk && afterOk;
+        }
+
+        private bool IsWholeEdge(string text, int start, int length)
+        {
+            bool beforeOk =
+                start == 0 ||
+                !char.IsLetterOrDigit(text[start - 1]);
+
+            bool afterOk =
+                start + length >= text.Length ||
+                !char.IsLetterOrDigit(text[start + length]);
 
             return beforeOk && afterOk;
         }
